@@ -77,6 +77,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 
 # PDF Viewer
 androidx-pdf-compose = { module = "androidx.pdf:pdf-compose", version.ref = "pdfViewer" }
+androidx-pdf-ink = { module = "androidx.pdf:pdf-ink", version.ref = "pdfViewer" }
 androidx-pdf-document-service = { module = "androidx.pdf:pdf-document-service", version.ref = "pdfViewer" }
 androidx-pdf-viewer = { module = "androidx.pdf:pdf-viewer", version.ref = "pdfViewer" }
 

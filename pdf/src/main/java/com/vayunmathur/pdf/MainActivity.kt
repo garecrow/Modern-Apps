@@ -3,6 +3,7 @@ package com.vayunmathur.pdf
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,17 +11,24 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,39 +38,66 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.center
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toOffset
 import androidx.core.util.forEach
+import androidx.pdf.EditablePdfDocument
+import androidx.pdf.EditsDraft
 import androidx.pdf.PdfDocument
 import androidx.pdf.PdfPasswordException
 import androidx.pdf.PdfPoint
 import androidx.pdf.PdfRect
+import androidx.pdf.SandboxedPdfDocument
 import androidx.pdf.SandboxedPdfLoader
 import androidx.pdf.compose.PdfViewer
 import androidx.pdf.compose.PdfViewerState
+import androidx.pdf.models.FormEditInfo
+import androidx.pdf.models.FormWidgetInfo
+import androidx.pdf.models.FormWidgetInfo.Companion.WIDGET_TYPE_CHECKBOX
 import androidx.pdf.view.Highlight
+import androidx.pdf.widget.WidgetType
 import com.vayunmathur.library.ui.DynamicTheme
+import com.vayunmathur.library.ui.IconSave
+import com.vayunmathur.library.ui.IconSearch
 import com.vayunmathur.library.ui.IconShare
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import kotlin.collections.forEach
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +112,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var data by rememberSaveable { mutableStateOf(data) }
             var password: String? by rememberSaveable { mutableStateOf(null) }
-            var pdfDocument by remember { mutableStateOf<PdfDocument?>(null) }
+            var pdfDocument by remember { mutableStateOf<EditablePdfDocument?>(null) }
             var showPasswordDialog by remember { mutableStateOf(false) }
             var passwordError by remember { mutableStateOf<String?>(null) }
 
@@ -97,7 +132,7 @@ class MainActivity : ComponentActivity() {
                 if(data != null) {
                     delay(1000)
                     try {
-                        pdfDocument = pdfLoader.openDocument(data!!, password)
+                        pdfDocument = pdfLoader.openDocument(data!!, password) as EditablePdfDocument
                     } catch(_: PdfPasswordException) {
                         if(password != null) {
                             passwordError = "Incorrect password. Please try again."
@@ -128,27 +163,59 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PdfViewerScreen(pdfDocument: PdfDocument) {
+fun PdfViewerScreen(pdfDocument: EditablePdfDocument) {
     val pdfState = remember { PdfViewerState() }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
 
     var showSearchBar by remember { mutableStateOf(false) }
     var searchResults by remember { mutableStateOf(emptyList<PdfRect>()) }
     var searchIndex by remember(searchResults) { mutableIntStateOf(0) }
     var searchText by remember { mutableStateOf("") }
 
+    var formWidgets by remember {mutableStateOf(listOf<Pair<Int, FormWidgetInfo>>())}
+    val formStrings = remember { mutableStateMapOf<Pair<Int, Int>, String>() }
+
+    LaunchedEffect(pdfDocument.uri) {
+        coroutineScope.launch {
+            val allWidgets = mutableListOf<Pair<Int, FormWidgetInfo>>()
+            for(i in 0 until pdfDocument.pageCount) {
+                allWidgets += pdfDocument.getFormWidgetInfos(i).map { i to it }
+            }
+            formWidgets = allWidgets
+            formStrings.clear()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val listener = object : PdfDocument.OnPdfContentInvalidatedListener {
+            override fun onPdfContentInvalidated(
+                pageNumber: Int,
+                dirtyAreas: List<android.graphics.Rect>
+            ) {
+                coroutineScope.launch {
+                    formWidgets =
+                        formWidgets.filter { it.first != pageNumber } + pdfDocument.getFormWidgetInfos(
+                            pageNumber
+                        ).map { pageNumber to it }
+                }
+            }
+        }
+        pdfDocument.addOnPdfContentInvalidatedListener(Executors.newSingleThreadExecutor(), listener)
+        onDispose {
+            pdfDocument.removeOnPdfContentInvalidatedListener(listener)
+        }
+    }
+
     BackHandler(showSearchBar) {
         showSearchBar = false
         searchResults = emptyList()
     }
 
-    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(pdfDocument.uri) {
         coroutineScope.launch {
             delay(500)
-            println(pdfDocument.uri)
             val restored = PdfStateStore.restore(context, pdfDocument.uri)
             if (restored != null) {
                 restored(pdfState)
@@ -166,7 +233,7 @@ fun PdfViewerScreen(pdfDocument: PdfDocument) {
     }
 
     fun search() {
-        scope.launch {
+        coroutineScope.launch {
             val results = pdfDocument.searchDocument(searchText, 0 until pdfDocument.pageCount)
             val resultsFinal = mutableListOf<PdfRect>()
             results.forEach { page, result ->
@@ -179,6 +246,8 @@ fun PdfViewerScreen(pdfDocument: PdfDocument) {
             searchResults = resultsFinal
         }
     }
+
+    var changesMade by remember { mutableStateOf(false) }
 
     LaunchedEffect(searchResults, searchIndex) {
         pdfState.setHighlights(
@@ -208,11 +277,7 @@ fun PdfViewerScreen(pdfDocument: PdfDocument) {
         topBar = {
             TopAppBar({ Text("PDF Viewer") }, actions = {
                 if (!showSearchBar) {
-                    IconButton({
-                        showSearchBar = true
-                    }) {
-                        Icon(painterResource(R.drawable.search_24px), null)
-                    }
+                    IconButton({ showSearchBar = true }) { IconSearch() }
                     IconButton({
                         val intent = Intent(Intent.ACTION_SEND)
                         intent.type = "application/pdf"
@@ -243,31 +308,144 @@ fun PdfViewerScreen(pdfDocument: PdfDocument) {
             }
         },
         floatingActionButton = {
-            if (showSearchBar) {
-                Column {
-                    SmallFloatingActionButton({
-                        if (searchIndex > 0)
-                            searchIndex--
-                    }) {
-                        Icon(painterResource(R.drawable.keyboard_arrow_up_24px), null)
+            Column {
+                if (showSearchBar) {
+                    Column {
+                        SmallFloatingActionButton({
+                            if (searchIndex > 0)
+                                searchIndex--
+                        }) {
+                            Icon(painterResource(R.drawable.keyboard_arrow_up_24px), null)
+                        }
+                        SmallFloatingActionButton({
+                            if (searchIndex < searchResults.size - 1)
+                                searchIndex++
+                        }) {
+                            Icon(painterResource(R.drawable.keyboard_arrow_down_24px), null)
+                        }
                     }
-                    SmallFloatingActionButton({
-                        if (searchIndex < searchResults.size - 1)
-                            searchIndex++
+                }
+                if(changesMade) {
+                    FloatingActionButton({
+                        changesMade = false
+                        coroutineScope.launch {
+                            context.contentResolver.openFileDescriptor(pdfDocument.uri, "wt")?.use { pfd ->
+                                pdfDocument.createWriteHandle().writeTo(pfd)
+                            }
+                        }
                     }) {
-                        Icon(painterResource(R.drawable.keyboard_arrow_down_24px), null)
+                        IconSave()
                     }
                 }
             }
         }
     ) { innerPadding ->
         Column(Modifier.padding(innerPadding)) {
-            PdfViewer(pdfDocument, pdfState, Modifier.onGloballyPositioned { coordinates ->
-                center = coordinates.size.center.toOffset()
-            }) { uri ->
-                val intent = Intent(Intent.ACTION_VIEW, uri)
-                context.startActivity(intent)
-                true
+            Box(Modifier.fillMaxSize()) {
+                PdfViewer(pdfDocument, pdfState, Modifier.onGloballyPositioned { coordinates ->
+                    center = coordinates.size.center.toOffset()
+                }, isFormFillingEnabled = true) { uri ->
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    context.startActivity(intent)
+                    true
+                }
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val density = LocalDensity.current.density
+
+                    val viewportWidth = constraints.maxWidth.toFloat()
+                    val viewportHeight = constraints.maxHeight.toFloat()
+                    val viewportRect = Rect(0f, 0f, viewportWidth, viewportHeight)
+
+                    formWidgets.forEach { widgetInfo ->
+                        // 1. Memoize the calculation so it only updates when the scroll/offset changes
+                        val rectByOffset by remember(widgetInfo, pdfState.firstVisiblePageOffset) {
+                            derivedStateOf {
+                                val topLeft = (pdfState.pdfPointToVisibleOffset(
+                                    PdfPoint(
+                                        widgetInfo.first,
+                                        widgetInfo.second.widgetRect.left.toFloat(),
+                                        widgetInfo.second.widgetRect.top.toFloat()
+                                    )
+                                ) ?: Offset.Zero)
+                                val bottomRight = (pdfState.pdfPointToVisibleOffset(
+                                    PdfPoint(
+                                        widgetInfo.first,
+                                        widgetInfo.second.widgetRect.right.toFloat(),
+                                        widgetInfo.second.widgetRect.bottom.toFloat()
+                                    )
+                                ) ?: Offset.Zero)
+                                Rect(topLeft, bottomRight)
+                            }
+                        }
+
+                        if (!viewportRect.overlaps(rectByOffset)) {
+                            return@forEach
+                        }
+
+                        Box(
+                            Modifier
+                                .graphicsLayer {
+                                    // 2. Use graphicsLayer to bypass layout phase
+                                    translationX = rectByOffset.left
+                                    translationY = rectByOffset.top
+                                }
+                                .size(
+                                    (rectByOffset.width/density).dp,
+                                    (rectByOffset.height/density).dp
+                                )
+                                .background(Color.Red.copy(alpha = 0.5f)) // Use alpha to see PDF underneath
+                        ) {
+                            if(widgetInfo.second.widgetType == WIDGET_TYPE_CHECKBOX) {
+                                Box(Modifier.clickable{
+                                    coroutineScope.launch {
+                                        pdfDocument.applyEdit(
+                                            FormEditInfo.createClick(
+                                                widgetInfo.second.widgetIndex,
+                                                PdfPoint(widgetInfo.first, widgetInfo.second.widgetRect.exactCenterX(), widgetInfo.second.widgetRect.exactCenterY())
+                                            )
+                                        )
+                                        changesMade = true
+                                    }
+                                }.fillMaxSize())
+                            } else if(widgetInfo.second.widgetType == FormWidgetInfo.WIDGET_TYPE_TEXTFIELD) {
+                                BasicTextField(
+                                    value = widgetInfo.second.textValue ?: "",
+                                    onValueChange = {
+                                        if(it.length > widgetInfo.second.maxLength && widgetInfo.second.maxLength > 0) return@BasicTextField
+                                        coroutineScope.launch {
+                                            pdfDocument.applyEdit(
+                                                FormEditInfo.createSetText(
+                                                    widgetInfo.first,
+                                                    widgetInfo.second.widgetIndex,
+                                                    it
+                                                )
+                                            )
+                                            changesMade = true
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.Center),
+                                    // 1. Make text invisible but keep layout metrics
+                                    textStyle = TextStyle.Default.copy(
+                                        color = Color.Transparent,
+                                        fontSize = widgetInfo.second.fontSize.sp * pdfState.zoom / density
+                                    ),
+                                    // 2. Ensure the cursor remains visible
+                                    cursorBrush = SolidColor(Color.Black),
+                                    decorationBox = { innerTextField ->
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.CenterStart // Match PDF alignment
+                                        ) {
+                                            innerTextField()
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

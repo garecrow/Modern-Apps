@@ -17,8 +17,6 @@ object PdfStateStore {
         val pdfPoint = state.visibleOffsetToPdfPoint(centerOffset) ?: return
         val value = "${state.zoom},${pdfPoint.pageNum},${pdfPoint.x},${pdfPoint.y}"
         prefs.edit { putString(key, value) }
-        println(pdfPoint.pageNum)
-        println("${pdfPoint.x} ${pdfPoint.y}")
     }
 
     fun restore(context: Context, uri: Uri): (suspend (PdfViewerState) -> Unit)? {
@@ -30,8 +28,6 @@ object PdfStateStore {
         val page = parts[1].toIntOrNull() ?: 0
         val left = parts[2].toFloatOrNull() ?: 0f
         val top = parts[3].toFloatOrNull() ?: 0f
-        println(page)
-        println("$left $top")
         return {
             it.scrollToPage(page)
             it.scrollToPosition(PdfPoint(page, left, top))
