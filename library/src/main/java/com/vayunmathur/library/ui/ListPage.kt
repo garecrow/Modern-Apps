@@ -63,6 +63,7 @@ inline fun <reified T : DatabaseItem, Route : NavKey, reified EditPage : Route> 
     searchEnabled: Boolean = false,
     crossinline searchString: (T) -> String = {it.toString()},
     noinline bottomBar: @Composable () -> Unit = {},
+    noinline fab: (@Composable () -> Unit)? = null
 ) {
     val dbDataUnfiltered by viewModel.data<T>().collectAsState(listOf())
     var searchQuery by remember { mutableStateOf("") }
@@ -94,9 +95,12 @@ inline fun <reified T : DatabaseItem, Route : NavKey, reified EditPage : Route> 
         },
         bottomBar = bottomBar,
         floatingActionButton = {
-            if (editPage != null && backStack.last() !is EditPage) {
-                FloatingActionButton(onClick = { backStack.add(editPage()) }) {
-                    IconAdd()
+            Column {
+                fab?.invoke()
+                if (editPage != null && backStack.last() !is EditPage) {
+                    FloatingActionButton(onClick = { backStack.add(editPage()) }) {
+                        IconAdd()
+                    }
                 }
             }
         },

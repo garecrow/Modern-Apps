@@ -3,6 +3,7 @@ package com.vayunmathur.music.ui
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Size
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,7 +55,9 @@ import com.vayunmathur.music.R
 import com.vayunmathur.music.Route
 import com.vayunmathur.music.database.Music
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 fun getThumbnail(context: Context, uri: Uri): Bitmap? {
     return try {
@@ -71,6 +76,8 @@ fun HomeScreen(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
     val context = LocalContext.current
     val playbackManager = remember { PlaybackManager.getInstance(context) }
 
+    val coroutineScope = rememberCoroutineScope()
+
     ListPage<Music, Route, Route.Song>(backStack, viewModel, "Music", { Text(it.title) }, {
         Text(it.artist)
     }, {toPlay ->
@@ -82,6 +89,18 @@ fun HomeScreen(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
            AlbumArt(music.uri.toUri(), Modifier.size(40.dp))
     }, searchEnabled = true, bottomBar = {
         PlayingBottomBar(playbackManager, backStack)
+    }, fab = {
+        FloatingActionButton({
+            coroutineScope.launch {
+                val allSongs = viewModel.getAll<Music>()
+                val toPlayIndex = Random.nextInt(allSongs.size)
+                playbackManager.playSong(allSongs, toPlayIndex)
+                if(!playbackManager.shuffleMode.value)
+                    playbackManager.toggleShuffle()
+            }
+        }) {
+            Icon(painterResource(R.drawable.ic_shuffle), null)
+        }
     })
 }
 
@@ -89,7 +108,7 @@ fun HomeScreen(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
 fun AlbumArt(artUri: Uri, modifier: Modifier) {
     val context = LocalContext.current
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(artUri) {
         bitmap = getThumbnail(context, artUri)
     }
     AsyncImage(
@@ -179,7 +198,7 @@ suspend fun getMedia(context: Context): List<Music> = withContext(Dispatchers.IO
         MediaStore.Audio.Media.TITLE,
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.ALBUM,
-        MediaStore.Audio.Media.ALBUM_ID
+        MediaStore.Audio.Media.ALBUM_ID,
     )
 
     // Filter to only get music files

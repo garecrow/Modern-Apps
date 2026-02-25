@@ -4,6 +4,7 @@ agp = "9.0.1"
 coilCompose = "2.7.0"
 connectClient = "1.2.0-alpha02"
 exifinterface = "1.4.2"
+jaudiotagger = "3.0.1"
 kotlin = "2.3.10"
 datastorePreferences = "1.2.0"
 kotlinCsvJvm = "1.10.0"
@@ -54,6 +55,7 @@ workRuntimeKtx = "2.11.1"
 
 [libraries]
 coil-video = { module = "io.coil-kt:coil-video", version.ref = "coilCompose" }
+jaudiotagger = { module = "net.jthink:jaudiotagger", version.ref = "jaudiotagger" }
 okio = {group = "com.squareup.okio", name = "okio", version.ref = "okio"}
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }

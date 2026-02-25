@@ -8,6 +8,8 @@ dependencies {
 
     implementation(libs.androidx.navigation3.runtime)
 
+    implementation(libs.jaudiotagger)
+
     // room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
