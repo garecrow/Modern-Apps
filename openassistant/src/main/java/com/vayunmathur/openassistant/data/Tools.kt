@@ -159,15 +159,15 @@ class Tools {
                     }
                 }
             },
-            ToolSimple("get_notes", "Get a list of notes (and their content) on the user's phone", listOf()) { _, _ ->
-                ToolResult(intentLauncher.launch("com.vayunmathur.notes", "com.vayunmathur.notes.intents.GetIntent", Unit::class, Unit), "Retrieved notes")
+            ToolSimple("get_notes", "Get a list of notes (and their content) on the user's phone", listOf()) { _, context ->
+                ToolResult(intentLauncher.launch(context,"com.vayunmathur.notes", "com.vayunmathur.notes.intents.GetIntent", Unit::class, Unit), "Retrieved notes")
             },
             ToolSimple("insert_note", "Add a note to the user's phone", listOf(
                 stringParam("title", "the title of the note"),
                 stringParam("content", "the content of the note")
-            )) { args, _ ->
+            )) { args, context ->
                 val input = InsertNoteData(args["title"]!!.jsonPrimitive.content, args["content"]!!.jsonPrimitive.content)
-                ToolResult(intentLauncher.launch("com.vayunmathur.notes", "com.vayunmathur.notes.intents.InsertIntent", InsertNoteData::class, input), "Added notes")
+                ToolResult(intentLauncher.launch(context,"com.vayunmathur.notes", "com.vayunmathur.notes.intents.InsertIntent", InsertNoteData::class, input), "Added notes")
             }
         )
 

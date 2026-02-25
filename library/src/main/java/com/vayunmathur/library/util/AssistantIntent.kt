@@ -1,6 +1,8 @@
 package com.vayunmathur.library.util
 
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -57,8 +59,10 @@ class IntentLauncher(activity: ComponentActivity) {
         continuation = null
     }
 
+    @SuppressLint("QueryPermissionsNeeded")
     @OptIn(InternalSerializationApi::class)
     suspend fun <Input : Any> launch(
+        context: Context,
         packageName: String,
         className: String,
         kClass: KClass<Input>,
@@ -71,7 +75,26 @@ class IntentLauncher(activity: ComponentActivity) {
             putExtra("DATA", Json.encodeToString(kClass.serializer(), input))
         }
 
+        // 1. Check if the package/activity is resolvable
+        val packageManager = context.packageManager // You'll need access to context
+        if (intent.resolveActivity(packageManager) == null) {
+            continuation = null
+            // Optional onCancellation cleanup
+            cont.resume("package $packageName doesn't exist") { cause, _, _ -> // Optional onCancellation cleanup
+                // Optional onCancellation cleanup
+            }
+            return@suspendCancellableCoroutine
+        }
+
+        // 2. Setup cancellation logic
         cont.invokeOnCancellation { continuation = null }
-        launcher.launch(intent)
+
+        // 3. Launch if everything looks good
+        try {
+            launcher.launch(intent)
+        } catch (e: Exception) {
+            continuation = null
+            cont.resume("package $packageName doesn't exist")
+        }
     }
 }
