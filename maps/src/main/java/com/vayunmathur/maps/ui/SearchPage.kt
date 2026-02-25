@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import com.vayunmathur.library.ui.IconNavigation
@@ -35,6 +36,7 @@ import com.vayunmathur.maps.data.AmenityDatabase
 import com.vayunmathur.maps.data.AmenityEntity
 import com.vayunmathur.maps.data.OpeningHours
 import com.vayunmathur.maps.data.SpecificFeature
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.maplibre.spatialk.geojson.Position
 
@@ -86,9 +88,9 @@ fun SearchPage(
                         placeholder = { Text("Search nearby...") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                            disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
                         ),
                         leadingIcon = { IconSearch() },
                         singleLine = true
@@ -124,20 +126,20 @@ fun SearchPage(
                             },
                             modifier = Modifier.clickable {
                                 scope.launch {
-                                    println("CLICKED")
                                     val tags = db.tagDao().getTags(amenity.id).associate { it.key to it.value }
-                                    println("GOT TAGS")
                                     val feature = SpecificFeature.Restaurant(tags["name"] ?: "", tags["phone"], tags["website"], tags["website:menu"], tags["opening_hours"]?.let { OpeningHours.from(it) },
                                         Position(amenity.lon, amenity.lat)
                                     )
-                                    println("MADE FEATURES")
                                     // Dispatch the selected result back to the registry
-                                    val f = viewModel.selectedFeature.value as SpecificFeature.Route
-                                    viewModel.set(f.copy(waypoints = f.waypoints.mapIndexed { idx2, it ->
-                                        if (idx2 == idx) feature else it
-                                    }))
-
-                                    println("DISPATCHED RESULT")
+                                    if(idx != null) {
+                                        val f =
+                                            viewModel.selectedFeature.value as SpecificFeature.Route
+                                        viewModel.set(f.copy(waypoints = f.waypoints.mapIndexed { idx2, it ->
+                                            if (idx2 == idx) feature else it
+                                        }))
+                                    } else {
+                                        viewModel.set(feature)
+                                    }
                                     // Pop the backstack to return to the previous screen (the map)
                                     backStack.pop()
                                 }

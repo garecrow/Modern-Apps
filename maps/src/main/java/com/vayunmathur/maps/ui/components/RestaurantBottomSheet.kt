@@ -9,16 +9,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +37,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.vayunmathur.maps.FullPlaceInfo
 import com.vayunmathur.maps.R
+import com.vayunmathur.maps.Reviews
 import com.vayunmathur.maps.data.SpecificFeature
 import com.vayunmathur.maps.data.timeFormat
 import kotlinx.datetime.TimeZone
@@ -50,17 +55,29 @@ fun goto(context: Context, uri: String) {
 
 @Composable
 fun RestaurantBottomSheet(inactiveNavigation: SpecificFeature.Route?, feature: SpecificFeature.Restaurant, requestDirections: () -> Unit) {
+    var reviews by remember { mutableStateOf<FullPlaceInfo?>(null) }
+    LaunchedEffect(Unit) {
+        reviews = Reviews.getRatingForOsmLocation(feature.name, feature.position.latitude, feature.position.longitude)
+    }
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(feature.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            Button({requestDirections()}) {
-                if(inactiveNavigation == null) {
-                    Text("Directions")
-                } else {
-                    Text("Add Stop to Route")
+            ListItem({
+                Text(
+                    feature.name,
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }, supportingContent = reviews?.let { reviews ->
+                { Text("${reviews.rating} stars | ${reviews.userRatingCount} reviews") }
+            }, trailingContent = {
+                Button({requestDirections()}) {
+                    if(inactiveNavigation == null) {
+                        Text("Directions")
+                    } else {
+                        Text("Add Stop to Route")
+                    }
                 }
-            }
+            }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
         }
         feature.openingHours?.let {
             Spacer(Modifier.height(8.dp))

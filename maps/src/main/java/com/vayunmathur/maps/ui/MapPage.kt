@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -159,6 +160,10 @@ fun MapPage(backStack: NavBackStack<Route>, viewModel: SelectedFeatureViewModel,
         }, false)
     )
 
+    LaunchedEffect(Unit) {
+        if(selectedFeature != null) scaffoldState.bottomSheetState.expand()
+    }
+
     suspend fun hide() {
         allowProgrammaticHide = true
         scaffoldState.bottomSheetState.hide()
@@ -279,6 +284,20 @@ fun MapPage(backStack: NavBackStack<Route>, viewModel: SelectedFeatureViewModel,
                                 }
                             }
                         }
+                    }
+                } else {
+                    val name = if(selectedFeature is SpecificFeature.RoutableFeature) {
+                        (selectedFeature as SpecificFeature.RoutableFeature).name
+                    } else {
+                        "Search..."
+                    }
+                    Card(Modifier.padding(16.dp), shape = RoundedCornerShape(12.dp)) {
+                        ListItem({
+                            Text(name)
+                        }, colors = ListItemDefaults.colors(Color.Transparent), modifier = Modifier.clickable {
+                            val bbox = camera.projection!!.queryVisibleBoundingBox()
+                            backStack.add(Route.SearchPage(null, bbox.east, bbox.west, bbox.north, bbox.south))
+                        })
                     }
                 }
 
