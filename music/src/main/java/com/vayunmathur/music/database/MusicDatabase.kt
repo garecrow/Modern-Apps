@@ -7,8 +7,14 @@ import com.vayunmathur.library.util.TrueDao
 
 @Dao
 interface MusicDao: TrueDao<Music>
+@Dao
+interface AlbumDao: TrueDao<Album>
+@Dao
+interface ArtistDao: TrueDao<Artist>
 
-@Database(entities = [Music::class], version = 1)
+@Database(entities = [Music::class, Album::class, Artist::class], version = 1)
 abstract class MusicDatabase: RoomDatabase() {
     abstract fun musicDao(): MusicDao
+    abstract fun albumDao(): AlbumDao
+    abstract fun artistDao(): ArtistDao
 }

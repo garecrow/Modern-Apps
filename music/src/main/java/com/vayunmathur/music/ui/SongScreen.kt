@@ -28,6 +28,7 @@ import androidx.media3.common.Player
 import androidx.navigation3.runtime.NavBackStack
 import com.vayunmathur.library.ui.IconNavigation
 import com.vayunmathur.library.util.DatabaseViewModel
+import com.vayunmathur.music.AlbumArt
 import com.vayunmathur.music.PlaybackManager
 import com.vayunmathur.music.R
 import com.vayunmathur.music.Route

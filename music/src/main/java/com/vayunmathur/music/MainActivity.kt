@@ -13,11 +13,14 @@ import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.MainNavigation
 import com.vayunmathur.library.util.buildDatabase
 import com.vayunmathur.library.util.rememberNavBackStack
+import com.vayunmathur.music.database.Album
+import com.vayunmathur.music.database.Artist
 import com.vayunmathur.music.database.Music
 import com.vayunmathur.music.database.MusicDatabase
+import com.vayunmathur.music.ui.AlbumScreen
+import com.vayunmathur.music.ui.ArtistScreen
 import com.vayunmathur.music.ui.HomeScreen
 import com.vayunmathur.music.ui.SongScreen
-import com.vayunmathur.music.ui.saveMediaToFile
 import kotlinx.serialization.Serializable
 
 class MainActivity : ComponentActivity() {
@@ -27,7 +30,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val db = buildDatabase<MusicDatabase>()
-        val viewModel = DatabaseViewModel(db,Music::class to db.musicDao())
+        val viewModel = DatabaseViewModel(db,Music::class to db.musicDao(), Album::class to db.albumDao(), Artist::class to db.artistDao())
         val pm = PlaybackManager.getInstance(this)
         setContent {
             DynamicTheme {
@@ -45,6 +48,10 @@ sealed interface Route: NavKey {
     @Serializable
     data object Home: Route
     @Serializable
+    data object Albums: Route
+    @Serializable
+    data object Artists: Route
+    @Serializable
     data object Song: Route
 }
 
@@ -57,6 +64,12 @@ fun Navigation(viewModel: DatabaseViewModel) {
         }
         entry<Route.Song> {
             SongScreen(backStack, viewModel)
+        }
+        entry<Route.Albums> {
+            AlbumScreen(backStack, viewModel)
+        }
+        entry<Route.Artists> {
+            ArtistScreen(backStack, viewModel)
         }
     }
 }

@@ -7,12 +7,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @Entity
-data class Music(
+data class Album(
     @PrimaryKey(autoGenerate = true) override val id: Long,
-    val title: String,
+    val name: String,
     val artist: String,
     val artistId: Long,
-    val album: String,
-    val albumId: Long,
     val uri: String
 ): DatabaseItem
