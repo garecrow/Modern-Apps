@@ -88,10 +88,10 @@ subprojects {
                         getDefaultProguardFile("proguard-android-optimize.txt")
                     )
                 }
-                getByName("debug") {
-                    applicationIdSuffix = ".debug"
-                    versionNameSuffix = "-DEBUG" // Helpful to see in App Info
-                }
+//                getByName("debug") {
+//                    applicationIdSuffix = ".debug"
+//                    versionNameSuffix = "-DEBUG" // Helpful to see in App Info
+//                }
             }
             dependenciesInfo {
                 includeInApk = false
