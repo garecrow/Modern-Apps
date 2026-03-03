@@ -66,6 +66,54 @@ interface HealthDao {
     fun maxInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double?>
     @Query("SELECT * FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
     fun getAllInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<List<Record>>
+
+    @Query("""
+    SELECT 
+        date(startTime / 1000, 'unixepoch', 'localtime') as day, 
+        SUM(value) as totalValue,
+        SUM(secondaryValue) as totalValue2 
+    FROM Record 
+    WHERE type = :type 
+      AND startTime >= :startTime 
+      AND endTime <= :endTime
+    GROUP BY day
+    ORDER BY day ASC
+""")
+    suspend fun getDailySums(
+        type: RecordType,
+        startTime: kotlin.time.Instant,
+        endTime: kotlin.time.Instant
+    ): List<DailySum>
+
+    @Query("""
+    SELECT 
+        strftime('%Y-%m-%d %H:00', startTime / 1000, 'unixepoch', 'localtime') AS hourBlock, 
+        SUM(value) AS totalValue,
+        SUM(secondaryValue) AS totalValue2
+    FROM Record 
+    WHERE type = :type 
+      AND startTime >= :startTime 
+      AND endTime <= :endTime
+    GROUP BY hourBlock
+    ORDER BY hourBlock ASC
+""")
+    suspend fun getHourlySums(
+        type: RecordType,
+        startTime: Long,
+        endTime: Long
+    ): List<HourlySum>
+
+    // Helper data class to catch the results
+    data class DailySum(
+        val day: String, // Format: YYYY-MM-DD
+        val totalValue: Double,
+        val totalValue2: Double
+    )
+    data class HourlySum(
+        val hourBlock: String, // Format: 2026-03-03 15:00
+        val totalValue: Double,
+        val totalValue2: Double
+    )
 }
 
 @Database(

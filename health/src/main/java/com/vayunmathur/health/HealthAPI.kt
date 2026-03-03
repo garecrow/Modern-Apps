@@ -12,13 +12,19 @@ import androidx.health.connect.client.request.ReadMedicalResourcesPageRequest
 import com.vayunmathur.health.database.HealthDatabase
 import com.vayunmathur.health.database.Record
 import com.vayunmathur.health.database.RecordType
+import com.vayunmathur.library.util.Tuple3
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.atTime
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
@@ -53,7 +59,7 @@ object HealthAPI {
     }
 
     enum class PeriodType {
-        Hourly, Daily, Weekly
+        Hourly, Daily, Weekly, Monthly
     }
 
     suspend fun getListOfAverages(
@@ -83,6 +89,11 @@ object HealthAPI {
                     val nextLocalDate = localDateTime.date.plus(1, DateTimeUnit.WEEK)
                     nextLocalDate.atTime(localDateTime.hour, localDateTime.minute).toInstant(tz)
                 }
+                PeriodType.Monthly -> {
+                    val localDateTime = currentStart.toLocalDateTime(tz)
+                    val nextLocalDate = localDateTime.date.plus(1, DateTimeUnit.MONTH)
+                    nextLocalDate.atTime(localDateTime.hour, localDateTime.minute).toInstant(tz)
+                }
             }
 
             // Clamp the end range to the requested endTime
@@ -104,42 +115,43 @@ object HealthAPI {
         startTime: Instant,
         endTime: Instant,
         period: PeriodType
-    ): List<Pair<Double, Double>> {
-        val tz = TimeZone.currentSystemDefault()
-        val sums = mutableListOf<Pair<Double, Double>>()
-
-        var currentStart = startTime
-
-        while (currentStart < endTime) {
-            val nextStart = when (period) {
-                PeriodType.Hourly -> {
-                    currentStart.plus(1.hours)
-                }
-                PeriodType.Daily -> {
-                    // Shift to local time, add a day, shift back to Instant
-                    val localDateTime = currentStart.toLocalDateTime(tz)
-                    val nextLocalDate = localDateTime.date.plus(1, DateTimeUnit.DAY)
-                    nextLocalDate.atTime(localDateTime.hour, localDateTime.minute).toInstant(tz)
-                }
-                PeriodType.Weekly -> {
-                    val localDateTime = currentStart.toLocalDateTime(tz)
-                    val nextLocalDate = localDateTime.date.plus(1, DateTimeUnit.WEEK)
-                    nextLocalDate.atTime(localDateTime.hour, localDateTime.minute).toInstant(tz)
+    ): List<Tuple3<Long, Double, Double>> {
+        when(period) {
+            PeriodType.Daily -> {
+                // yyyy-mm-dd
+                val dailySums = db.healthDao().getDailySums(recordType, startTime, endTime).sortedBy { it.day }
+                return dailySums.map { Tuple3(LocalDate.parse(it.day).toEpochDays(), it.totalValue, it.totalValue2) }
+            }
+            PeriodType.Weekly -> {
+                val dailySums = db.healthDao().getDailySums(recordType, startTime, endTime).sortedBy { it.day }
+                    .groupBy {
+                        val date = LocalDate.parse(it.day)
+                        val firstDayOfWeek = date.plus((date.dayOfWeek.ordinal+1)%7, DateTimeUnit.DAY)
+                        firstDayOfWeek.toEpochDays()
+                    }
+                    .mapValues { it.value.map { it.totalValue }.average() to it.value.map { it.totalValue2 }.average() }
+                    .map { Tuple3(it.key, it.value.first, it.value.second) }
+                return dailySums
+            }
+            PeriodType.Monthly -> {
+                val dailySums = db.healthDao().getDailySums(recordType, startTime, endTime).sortedBy { it.day }
+                    .groupBy {
+                        val date = LocalDate.parse(it.day)
+                        val firstDayOfMonth = date.minus(date.day-1, DateTimeUnit.DAY)
+                        firstDayOfMonth
+                    }
+                    .mapValues { it.value.map { it.totalValue }.average() to it.value.map { it.totalValue2 }.average() }
+                    .map { Tuple3(it.key.toEpochDays(), it.value.first, it.value.second) }
+                return dailySums
+            }
+            else -> {
+                val hourlySums = db.healthDao().getHourlySums(recordType, startTime.toEpochMilliseconds(), endTime.toEpochMilliseconds()).sortedBy { it.hourBlock }
+                return hourlySums.map {
+                    val date = LocalDateTime.parse(it.hourBlock)
+                    Tuple3(date.date.toEpochDays()*24 + date.hour, it.totalValue, it.totalValue2)
                 }
             }
-
-            // Clamp the end range to the requested endTime
-            val currentEnd = if (nextStart > endTime) endTime else nextStart
-
-            // Fetch sum from DAO
-            val sum1 = db.healthDao().sumInRangeGet1(recordType, currentStart, currentEnd)
-            val sum2 = db.healthDao().sumInRangeGet2(recordType, currentStart, currentEnd)
-            sums.add(Pair(sum1, sum2))
-
-            currentStart = nextStart
         }
-
-        return sums
     }
 
     @OptIn(ExperimentalPersonalHealthRecordApi::class)

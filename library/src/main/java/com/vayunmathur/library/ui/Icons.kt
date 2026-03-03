@@ -78,3 +78,8 @@ fun IconNavigation(backStack: NavBackStack<out NavKey>) {
         Icon(painterResource(R.drawable.arrow_back_24px), "Navigation")
     }
 }
+
+@Composable
+fun IconCheck(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.outline_check_24), "Check", tint = tint)
+}

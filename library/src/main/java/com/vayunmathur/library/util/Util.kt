@@ -42,3 +42,6 @@ inline fun <reified T: ComponentActivity> Context.findActivity(): T? {
     }
     return null
 }
+
+data class Tuple3<A, B, C>(val first: A, val second: B, val third: C)
+data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

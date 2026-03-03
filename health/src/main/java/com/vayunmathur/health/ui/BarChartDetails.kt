@@ -16,12 +16,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -50,7 +55,12 @@ import com.vayunmathur.health.HealthAPI
 import com.vayunmathur.health.R
 import com.vayunmathur.health.Route
 import com.vayunmathur.health.database.RecordType
+import com.vayunmathur.library.ui.IconCheck
 import com.vayunmathur.library.ui.IconNavigation
+import com.vayunmathur.library.util.Tuple3
+import com.vayunmathur.library.util.Tuple4
+import com.vayunmathur.library.util.toStringCommas
+import com.vayunmathur.library.util.toStringDigits
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -62,6 +72,8 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 
 /**
  * Configuration for health metrics.
@@ -117,7 +129,7 @@ data class MetricDashboardData(
 
 data class HistoryItem(
     val label: String,
-    val value: Double?,
+    val value: Double,
     val secondaryValue: Double? = null,
     val unit: String,
     val isGoalMet: Boolean,
@@ -139,55 +151,73 @@ fun BarChartDetails(
     val tz = TimeZone.currentSystemDefault()
 
     LaunchedEffect(selectedTab, anchorDate, config) {
-        val (startTime, endTime, periodType) = when (selectedTab) {
-            0 -> Triple(anchorDate.atStartOfDayIn(tz), anchorDate.atTime(23, 59, 59).toInstant(tz), HealthAPI.PeriodType.Hourly)
+        val (startDate, endDate, periodType, periodType2) = when (selectedTab) {
+            0 -> Tuple4(anchorDate, anchorDate.plus(1, DateTimeUnit.DAY), HealthAPI.PeriodType.Hourly, HealthAPI.PeriodType.Hourly)
             1 -> {
-                val start = anchorDate.minus(anchorDate.dayOfWeek.ordinal, DateTimeUnit.DAY)
-                Triple(start.atStartOfDayIn(tz), start.plus(7, DateTimeUnit.DAY).atStartOfDayIn(tz), HealthAPI.PeriodType.Daily)
+                val start = anchorDate.minus((anchorDate.dayOfWeek.ordinal+1)%7, DateTimeUnit.DAY)
+                Tuple4(start, start.plus(7, DateTimeUnit.DAY), HealthAPI.PeriodType.Daily, HealthAPI.PeriodType.Daily)
             }
             2 -> {
                 val start = LocalDate(anchorDate.year, anchorDate.month, 1)
                 val end = start.plus(1, DateTimeUnit.MONTH)
-                Triple(start.atStartOfDayIn(tz), end.atStartOfDayIn(tz), HealthAPI.PeriodType.Daily)
+                Tuple4(start, end, HealthAPI.PeriodType.Daily, HealthAPI.PeriodType.Weekly)
             }
             else -> {
                 val start = LocalDate(anchorDate.year, 1, 1)
                 val end = start.plus(1, DateTimeUnit.YEAR)
-                Triple(start.atStartOfDayIn(tz), end.atStartOfDayIn(tz), HealthAPI.PeriodType.Weekly)
+                Tuple4(start, end, HealthAPI.PeriodType.Monthly, HealthAPI.PeriodType.Monthly)
             }
         }
+        val startTime = startDate.atStartOfDayIn(tz)
+        val endTime = endDate.atStartOfDayIn(tz)
+
+        val endTimeNow = if(Clock.System.now() < endTime) Clock.System.now() else endTime
 
         // Both functions now return List<Pair<Double?, Double?>>
         val rawPairs = if (config.isLineChart) {
-            HealthAPI.getListOfAverages(config.recordType, startTime, endTime, periodType)
+            HealthAPI.getListOfAverages(config.recordType, startTime, endTimeNow, periodType).mapIndexed { idx, it ->
+                Tuple3(
+                    idx.toLong(),
+                    it.first,
+                    it.second
+                )
+            }
         } else {
-            HealthAPI.getListOfSums(config.recordType, startTime, endTime, periodType)
+            HealthAPI.getListOfSums(config.recordType, startTime, endTimeNow, periodType)
+        }
+        val rawPairsHistory = if (config.isLineChart) {
+            HealthAPI.getListOfAverages(config.recordType, startTime, endTimeNow, periodType2).mapIndexed { idx, it ->
+                Tuple3(idx, it.first, it.second)
+            }
+        } else {
+            HealthAPI.getListOfSums(config.recordType, startTime, endTimeNow, periodType2)
         }
 
-        val mappedChart = rawPairs.mapIndexed { i, p -> i.toString() to p.first }
+        val mappedChart = rawPairs.mapIndexed { i, p -> i.toString() to p.second }
         val mappedSecondaryChart = if (config.isDualSeries) {
-            rawPairs.mapIndexed { i, p -> i.toString() to p.second }
+            rawPairs.mapIndexed { i, p -> i.toString() to p.third }
         } else null
 
-        val history = rawPairs.mapIndexed { index, pair ->
+        val history = if(selectedTab != 0) rawPairsHistory.mapIndexedNotNull { index, triple ->
             val label = when (selectedTab) {
-                0 -> "Hour $index"
+                0 -> ""
                 1 -> startTime.plus(index.toLong(), DateTimeUnit.DAY, tz).toLocalDateTime(tz).dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }
                 2 -> "Day ${index + 1}"
-                else -> "Week ${index + 1}"
+                else -> "Month ${index + 1}"
             }
+            if(triple.second == null) return@mapIndexedNotNull null
             HistoryItem(
                 label = label,
-                value = pair.first,
-                secondaryValue = if (config.isDualSeries) pair.second else null,
+                value = triple.second!!,
+                secondaryValue = if (config.isDualSeries) triple.third else null,
                 unit = config.unit,
-                isGoalMet = (pair.first ?: 0.0) >= config.dailyGoal,
+                isGoalMet = (triple.second ?: 0.0) >= config.dailyGoal,
                 useDecimals = config.useDecimals
             )
-        }.filter { it.value != null }.reversed()
+        }.reversed() else listOf()
 
-        val nonNullPrimary = rawPairs.mapNotNull { it.first }
-        val nonNullSecondary = if (config.isDualSeries) rawPairs.mapNotNull { it.second } else emptyList()
+        val nonNullPrimary = history.map { it.value }
+        val nonNullSecondary = if (config.isDualSeries) history.mapNotNull { it.secondaryValue } else emptyList()
 
         dataState = MetricDashboardData(
             totalValue = nonNullPrimary.sum(),
@@ -209,7 +239,7 @@ fun BarChartDetails(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            TabRow(selectedTabIndex = selectedTab, divider = {}) {
+            SecondaryTabRow(selectedTabIndex = selectedTab, divider = {}) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
@@ -226,7 +256,7 @@ fun BarChartDetails(
                 item {
                     val headerLabel = when (selectedTab) {
                         0 -> "${anchorDate.month.name} ${anchorDate.day}, ${anchorDate.year}"
-                        1 -> "Week of ${anchorDate.minus(anchorDate.dayOfWeek.ordinal, DateTimeUnit.DAY)}"
+                        1 -> "Week of ${anchorDate.minus((anchorDate.dayOfWeek.ordinal+1)%7, DateTimeUnit.DAY)}"
                         2 -> "${anchorDate.month.name} ${anchorDate.year}"
                         else -> anchorDate.year.toString()
                     }
@@ -249,6 +279,13 @@ fun BarChartDetails(
 
                         Text(headerLabel, style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(min = 140.dp), textAlign = TextAlign.Center)
 
+                        val nextDate = when(selectedTab) {
+                            0 -> anchorDate.plus(1, DateTimeUnit.DAY)
+                            1 -> anchorDate.plus(1, DateTimeUnit.WEEK)
+                            2 -> anchorDate.plus(1, DateTimeUnit.MONTH)
+                            else -> anchorDate.plus(1, DateTimeUnit.YEAR)
+                        }
+
                         IconButton(onClick = {
                             anchorDate = when(selectedTab) {
                                 0 -> anchorDate.plus(1, DateTimeUnit.DAY)
@@ -256,7 +293,7 @@ fun BarChartDetails(
                                 2 -> anchorDate.plus(1, DateTimeUnit.MONTH)
                                 else -> anchorDate.plus(1, DateTimeUnit.YEAR)
                             }
-                        }) {
+                        }, enabled = nextDate <= Clock.System.todayIn(TimeZone.currentSystemDefault())) {
                             Icon(painterResource(R.drawable.outline_arrow_forward_24), "Next")
                         }
                     }
@@ -306,11 +343,24 @@ fun BarChartDetails(
                             goalColor = MaterialTheme.colorScheme.secondary
                         )
                     }
+                    Spacer(Modifier.height(32.dp))
                 }
 
-                items(dataState.historyItems) { item ->
-                    HistoryCard(item)
-                    Spacer(Modifier.height(8.dp))
+                itemsIndexed(dataState.historyItems) { idx, item ->
+                    Card(Modifier.padding(vertical = 2.dp), shape = verticalSegmentedCardShape(idx, dataState.historyItems.size)) {
+                        ListItem({
+                            Text(item.label)
+                        }, trailingContent = {
+                            Row {
+                                if(item.isGoalMet) {
+                                    IconCheck()
+                                }
+                                val format = { v: Double -> if (item.useDecimals) v.toStringDigits(1) else v.toLong().toStringCommas() }
+                                val valueString = if (item.secondaryValue != null) "${format(item.value)}/${format(item.secondaryValue)}" else format(item.value)
+                                Text("$valueString ${item.unit}")
+                            }
+                        }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
+                    }
                 }
             }
         }
@@ -414,39 +464,5 @@ fun GenericBarChart(
         Text(text = String.format("%,d", maxChartValue.toLong()), color = labelColor, fontSize = 10.sp, modifier = Modifier.align(Alignment.TopEnd))
         Text(text = String.format("%,d", goalValue), color = barColor, fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(top = 40.dp))
         Text(text = "0", color = labelColor, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomEnd))
-    }
-}
-
-@Composable
-fun HistoryCard(item: HistoryItem) {
-    Surface(color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(item.label)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (item.value != null) {
-                    if (item.isGoalMet) {
-                        Icon(
-                            painter = painterResource(R.drawable.baseline_check_24),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-
-                    val format = { v: Double -> if (item.useDecimals) String.format("%.1f", v) else String.format("%,d", v.toLong()) }
-                    val valueString = if (item.secondaryValue != null) "${format(item.value)}/${format(item.secondaryValue)}" else format(item.value)
-
-                    Text(
-                        text = "$valueString ${item.unit}",
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
     }
 }
