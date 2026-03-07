@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import com.vayunmathur.clock.MAIN_PAGES
 import com.vayunmathur.clock.Route
+import com.vayunmathur.clock.citiesToTimezones
 import com.vayunmathur.library.ui.IconAdd
 import com.vayunmathur.library.util.BottomNavBar
 import com.vayunmathur.library.util.DataStoreUtils
@@ -86,10 +87,11 @@ fun ClockPage(backStack: NavBackStack<Route>, ds: DataStoreUtils) {
                     day(Padding.NONE)
                 }))
             }
-            items(timeZones.toList()) {
+            items(timeZones.toList()) {city ->
+                val it = citiesToTimezones[city] ?: return@items
                 val timeHere = now.toLocalDateTime(TimeZone.of(it))
                 Card {
-                    ListItem({Text(it)}, trailingContent = {
+                    ListItem({Text(city)}, trailingContent = {
                         Text(timeHere.time.format(LocalTime.Format {
                             amPmHour(Padding.NONE)
                             chars(":")

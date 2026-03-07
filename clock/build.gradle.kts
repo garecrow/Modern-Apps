@@ -5,6 +5,7 @@ android {
 }
 dependencies {
     implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.kotlin.csv.jvm)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

@@ -16,6 +16,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.NavKey
+import com.github.doyaaaaaken.kotlincsv.client.CsvFileReader
+import com.github.doyaaaaaken.kotlincsv.client.CsvReader
 import com.vayunmathur.clock.data.Alarm
 import com.vayunmathur.clock.data.ClockDatabase
 import com.vayunmathur.clock.data.Timer
@@ -40,6 +42,8 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 
+lateinit var citiesToTimezones: Map<String, String>
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +57,7 @@ class MainActivity : ComponentActivity() {
             }
             startActivity(intent)
         }
+        readTimezones(this)
         createTimerNotificationChannels(this)
         val ds = DataStoreUtils.getInstance(this)
         val db = buildDatabase<ClockDatabase>()
@@ -62,6 +67,17 @@ class MainActivity : ComponentActivity() {
                 Navigation(ds, viewModel)
             }
         }
+    }
+}
+
+fun readTimezones(context: Context) {
+    citiesToTimezones = context.assets.open("cities.csv").bufferedReader().readLines().drop(1).map {
+        it.split(",")
+    }.filter{
+        val pop = it[14].toDoubleOrNull()
+        pop != null && pop > 100000
+    }.associate {
+        it[1].replace("\"", "") to it[15]
     }
 }
 
@@ -108,10 +124,10 @@ fun Navigation(ds: DataStoreUtils, viewModel: DatabaseViewModel) {
         entry<Route.Stopwatch> {
             StopwatchPage(backStack)
         }
-        entry<Route.SelectTimeZonesDialog> {
+        entry<Route.SelectTimeZonesDialog>(metadata = DialogPage()) {
             SelectTimeZonesDialog(backStack, ds)
         }
-        entry<Route.NewTimerDialog> {
+        entry<Route.NewTimerDialog>(metadata = DialogPage()) {
             NewTimerDialog(backStack, viewModel)
         }
         entry<Route.NewAlarmDialog>(metadata = DialogPage()) {
