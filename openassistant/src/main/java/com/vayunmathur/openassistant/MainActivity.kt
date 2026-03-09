@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.NavKey
 import com.vayunmathur.library.ui.DynamicTheme
+import com.vayunmathur.library.ui.InitialDownloadChecker
 import com.vayunmathur.library.util.DataStoreUtils
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.IntentLauncher
@@ -35,7 +36,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DynamicTheme {
-                Navigation(viewModel, ds)
+                InitialDownloadChecker(ds, listOf(
+                    Triple("https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf", "phi3.gguf", "model weights")
+                )) {
+                    Navigation(viewModel, ds)
+                }
             }
         }
     }
