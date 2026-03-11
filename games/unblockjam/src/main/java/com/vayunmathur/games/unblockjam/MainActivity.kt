@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vayunmathur.games.unblockjam.ui.theme.UnblockJamTheme
@@ -63,14 +65,14 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
-    var levelIndex by remember { mutableStateOf(0) }
+    var levelIndex by remember { mutableIntStateOf(0) }
     var currentLevelData by remember { mutableStateOf(LevelData.LEVELS[levelIndex]) }
     val history = remember { mutableStateListOf<LevelData>() }
     var isLevelWon by remember { mutableStateOf(false) }
     var levelStats by remember { mutableStateOf(completedLevelsRepository.getLevelStats()) }
 
     fun changeLevel(newLevelIndex: Int) {
-        levelIndex = newLevelIndex.coerceIn(0, LevelData.LEVELS.size - 1)
+        levelIndex = newLevelIndex.coerceIn(0, LevelData.LEVELS.lastIndex)
         currentLevelData = LevelData.LEVELS[levelIndex]
         history.clear()
         isLevelWon = false
@@ -135,11 +137,9 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
                     levelData = currentLevelData,
                     onLevelChanged = { newLevelData ->
                         if (history.isNotEmpty()) {
-                            val lastState = history[history.size - 1]
-
                             // If block is moved back to its previous position
-                            if (lastState.blocks == newLevelData.blocks) {
-                                currentLevelData = history.removeAt(history.size - 1)
+                            if (history.last().blocks == newLevelData.blocks) {
+                                currentLevelData = history.removeAt(history.lastIndex)
                                 return@GameBoard
                             }
                         }
@@ -164,7 +164,7 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
                     Button(
                         onClick = {
                             if (history.isNotEmpty()) {
-                                currentLevelData = history.removeAt(history.size - 1)
+                                currentLevelData = history.removeAt(history.lastIndex)
                             }
                         },
                         enabled = history.isNotEmpty() && !isLevelWon
@@ -314,7 +314,7 @@ fun GameBoard(
                 Box(
                     modifier = Modifier
                         .size(blockWidth, blockHeight)
-                        .offset(currentOffsetX, offsetY)
+                        .offset { IntOffset(currentOffsetX.roundToPx(), offsetY.roundToPx()) }
                         .padding(4.dp)
                         .background(color, shape = RoundedCornerShape(4.dp))
                         .pointerInput(block, levelData, isLevelWon) {
