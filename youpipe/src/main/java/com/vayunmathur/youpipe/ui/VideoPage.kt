@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -41,12 +43,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation3.runtime.NavBackStack
 import coil.compose.AsyncImage
 import com.vayunmathur.library.util.DatabaseViewModel
+import com.vayunmathur.library.util.pop
 import com.vayunmathur.library.util.round
 import com.vayunmathur.youpipe.R
 import com.vayunmathur.youpipe.Route
@@ -103,30 +107,95 @@ fun VideoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, vide
     var audioStreams by remember { mutableStateOf<List<AudioStream>>(listOf()) }
     var segments by remember { mutableStateOf<List<VideoChapter>>(listOf()) }
 
+    var error by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
-        val youtubeService: StreamingService = ServiceList.YouTube
-        withContext(Dispatchers.IO) {
-            val streamExtractor = youtubeService.getStreamExtractor(url)
-            streamExtractor.fetchPage()
-            segments = streamExtractor.streamSegments.map { VideoChapter(it.startTimeSeconds*1000, it.title, it.previewUrl) }
-            videoStreams = streamExtractor.videoOnlyStreams.map { VideoStream(it.content, it.width, it.height, it.bitrate, it.fps, it.quality) }
-            audioStreams = streamExtractor.audioStreams.map { AudioStream(it.content, it.bitrate, it.audioLocale?.language ?: "Default") }
-            videoData = VideoData(streamExtractor.name, streamExtractor.viewCount, streamExtractor.length, streamExtractor.uploadDate!!.instant.toKotlinInstant(), streamExtractor.thumbnails.first().url, streamExtractor.uploaderName, channelURLtoID(streamExtractor.uploaderUrl), streamExtractor.uploaderAvatars.first().url)
-            val relatedVideosEx = streamExtractor.relatedItems ?: return@withContext
-            relatedVideos = relatedVideosEx.items.filterIsInstance<StreamInfoItem>().map {
-                VideoInfo(it.name, videoURLtoID(it.url), it.duration, it.viewCount, it.uploadDate!!.instant.toKotlinInstant(), it.thumbnails.first().url, it.uploaderName)
-            }
-        }
-        withContext(Dispatchers.IO) {
-            val commentsEx = youtubeService.getCommentsExtractor(url)
-            commentsEx.fetchPage()
-            comments = commentsEx.initialPage.items.map {
-                val content = if(it.commentText.type == Description.HTML) {
-                    it.commentText.content.fromHTML()
-                } else {
-                    it.commentText.content
+        try {
+            val youtubeService: StreamingService = ServiceList.YouTube
+            withContext(Dispatchers.IO) {
+                val streamExtractor = youtubeService.getStreamExtractor(url)
+                streamExtractor.fetchPage()
+                segments = streamExtractor.streamSegments.map {
+                    VideoChapter(
+                        it.startTimeSeconds * 1000,
+                        it.title,
+                        it.previewUrl
+                    )
                 }
-                Comment(content, it.uploaderName, it.likeCount, 0)
+                videoStreams = streamExtractor.videoOnlyStreams.map {
+                    VideoStream(
+                        it.content,
+                        it.width,
+                        it.height,
+                        it.bitrate,
+                        it.fps,
+                        it.quality
+                    )
+                }
+                audioStreams = streamExtractor.audioStreams.map {
+                    AudioStream(
+                        it.content,
+                        it.bitrate,
+                        it.audioLocale?.language ?: "Default"
+                    )
+                }
+                videoData = VideoData(
+                    streamExtractor.name,
+                    streamExtractor.viewCount,
+                    streamExtractor.length,
+                    streamExtractor.uploadDate!!.instant.toKotlinInstant(),
+                    streamExtractor.thumbnails.first().url,
+                    streamExtractor.uploaderName,
+                    channelURLtoID(streamExtractor.uploaderUrl),
+                    streamExtractor.uploaderAvatars.first().url
+                )
+                val relatedVideosEx = streamExtractor.relatedItems ?: return@withContext
+                relatedVideos = relatedVideosEx.items.filterIsInstance<StreamInfoItem>().map {
+                    VideoInfo(
+                        it.name,
+                        videoURLtoID(it.url),
+                        it.duration,
+                        it.viewCount,
+                        it.uploadDate!!.instant.toKotlinInstant(),
+                        it.thumbnails.first().url,
+                        it.uploaderName
+                    )
+                }
+            }
+            withContext(Dispatchers.IO) {
+                val commentsEx = youtubeService.getCommentsExtractor(url)
+                commentsEx.fetchPage()
+                comments = commentsEx.initialPage.items.map {
+                    val content = if (it.commentText.type == Description.HTML) {
+                        it.commentText.content.fromHTML()
+                    } else {
+                        it.commentText.content
+                    }
+                    Comment(content, it.uploaderName, it.likeCount, 0)
+                }
+            }
+        } catch(e: Exception) {
+            error = true
+            e.printStackTrace()
+        }
+    }
+
+    if(error) {
+        Dialog({
+            error = false
+            backStack.pop()
+        }) {
+            Card() {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Video load error - Youtube may have blocked anonymous watch access from this IP")
+                    Spacer(Modifier.height(8.dp))
+                    Button({
+                        error = false
+                        backStack.pop()
+                    }) {
+                        Text("Go Back")
+                    }
+                }
             }
         }
     }
