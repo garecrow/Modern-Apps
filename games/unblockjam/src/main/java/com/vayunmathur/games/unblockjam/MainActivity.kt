@@ -66,7 +66,6 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
     var levelIndex by remember { mutableStateOf(0) }
     var currentLevelData by remember { mutableStateOf(LevelData.LEVELS[levelIndex]) }
     val history = remember { mutableStateListOf<LevelData>() }
-    var moves by remember { mutableStateOf(0) }
     var isLevelWon by remember { mutableStateOf(false) }
     var levelStats by remember { mutableStateOf(completedLevelsRepository.getLevelStats()) }
 
@@ -74,8 +73,11 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
         levelIndex = newLevelIndex.coerceIn(0, LevelData.LEVELS.size - 1)
         currentLevelData = LevelData.LEVELS[levelIndex]
         history.clear()
-        moves = 0
         isLevelWon = false
+    }
+
+    fun getCurrentMoves(): Int {
+        return history.size + if (isLevelWon) 1 else 0
     }
 
     LaunchedEffect(Unit) {
@@ -92,7 +94,7 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
 
     LaunchedEffect(isLevelWon) {
         if (isLevelWon) {
-            completedLevelsRepository.updateBestScore(levelIndex, moves)
+            completedLevelsRepository.updateBestScore(levelIndex, getCurrentMoves())
             levelStats = completedLevelsRepository.getLevelStats() // Refresh stats
             delay(1000)
             changeLevel(levelIndex + 1)
@@ -124,7 +126,7 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
                         isCompleted = currentLevelStats != null
                     )
                     MovesInfoBox(
-                        moves = moves,
+                        moves = getCurrentMoves(),
                         bestScore = currentLevelStats?.bestScore,
                         optimalMoves = currentLevelData.optimalMoves
                     )
@@ -135,14 +137,10 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
                         if (!isLevelWon) {
                             history.add(currentLevelData)
                             currentLevelData = newLevelData
-                            moves++
                         }
                     },
                     onLevelWon = {
-                        if (!isLevelWon) {
-                            moves++
-                            isLevelWon = true
-                        }
+                        isLevelWon = true
                     },
                     isLevelWon = isLevelWon
                 )
@@ -154,7 +152,6 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
                         onClick = {
                             if (history.isNotEmpty()) {
                                 currentLevelData = history.removeAt(history.size - 1)
-                                moves--
                             }
                         },
                         enabled = history.isNotEmpty() && !isLevelWon
@@ -164,7 +161,6 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
                     Button(onClick = {
                         history.clear()
                         currentLevelData = LevelData.LEVELS[levelIndex]
-                        moves = 0
                         isLevelWon = false
                     },
                         enabled = history.isNotEmpty() && !isLevelWon) {
