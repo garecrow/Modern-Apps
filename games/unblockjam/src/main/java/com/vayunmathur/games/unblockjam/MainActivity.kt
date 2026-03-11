@@ -79,7 +79,9 @@ fun GameScreen(completedLevelsRepository: CompletedLevelsRepository) {
     }
 
     fun getCurrentMoves(): Int {
-        return history.size + if (isLevelWon) 1 else 0
+        val winningMoveIncrement =
+            if (isLevelWon && currentLevelData.lastMovedBlockIndex != 0) 1 else 0
+        return history.size + winningMoveIncrement
     }
 
     LaunchedEffect(Unit) {
