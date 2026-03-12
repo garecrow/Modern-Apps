@@ -34,7 +34,7 @@ class LLamaAPI(context: Context) {
 
     init {
         runBlocking {
-            model = LlamaModel.load(File(context.getExternalFilesDir(null), "phi3.gguf").absolutePath)
+            model = LlamaModel.load(File(context.getExternalFilesDir(null), "model.gguf").absolutePath)
         }
     }
 
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             DynamicTheme {
                 InitialDownloadChecker(ds, listOf(
-                    Triple("https://huggingface.co/unsloth/gemma-3n-E4B-it-GGUF/resolve/main/gemma-3n-E4B-it-Q5_K_M.gguf", "phi3.gguf", "model weights")
+                    Triple("https://huggingface.co/unsloth/gemma-3n-E2B-it-GGUF/resolve/main/gemma-3n-E2B-it-Q4_K_M.gguf", "model.gguf", "Model Weights")
                 )) {
                     LaunchedEffect(Unit) {
                         LLamaAPI.getInstance(this@MainActivity)
