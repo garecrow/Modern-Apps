@@ -1,6 +1,8 @@
 package com.vayunmathur.openassistant.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -21,14 +23,18 @@ data class FunctionSpec(
     val parameters: JsonObject
 )
 
+@Serializable
 data class ToolResult(val llmResponse: String, val userResponse: String)
 
+@Serializable
 data class ToolSimple(
     val name: String,
     val description: String,
     val params: List<Parameter>,
-    val action: ToolFunctionType,
+    @Transient
+    val action: ToolFunctionType = { _, _ -> ToolResult("", "") },
 ) {
+    @Serializable
     data class Parameter(
         val name: String,
         val type: String,
@@ -59,6 +65,10 @@ data class ToolSimple(
                 }
             )
         )
+    }
+
+    fun systemDescription(): String {
+        return Json.encodeToString(this)
     }
 }
 

@@ -80,6 +80,7 @@ import com.vayunmathur.openassistant.R
 import com.vayunmathur.openassistant.Route
 import com.vayunmathur.openassistant.data.Conversation
 import com.vayunmathur.openassistant.data.Message
+import com.vayunmathur.openassistant.data.ToolCall
 import com.vayunmathur.openassistant.data.Tools
 import com.vayunmathur.openassistant.data.database.MessageDao
 import com.vayunmathur.openassistant.data.database.MessageDatabase
@@ -90,6 +91,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import okio.Buffer
 import kotlin.random.Random
 import kotlin.random.nextUInt
@@ -102,10 +104,9 @@ class ConversationWorker(appContext: Context, workerParams: WorkerParameters): C
         val uris = inputData.getStringArray("uris")!!.map { it.toUri() }
         val ds = DataStoreUtils.getInstance(applicationContext)
         ds.setBoolean("isThinking", true)
-        delay(500)
         val db = applicationContext.buildDatabase<MessageDatabase>()
         val viewModel = DatabaseViewModel(db,Message::class to db.messageDao(), Conversation::class to db.conversationDao())
-        send(viewModel, db.messageDao(), ds, conversationID, userMessage, uris)
+        send(viewModel, db.messageDao(), conversationID, userMessage, uris)
         ds.setBoolean("isThinking", false)
         return Result.success()
     }
@@ -118,14 +119,12 @@ class ConversationWorker(appContext: Context, workerParams: WorkerParameters): C
         if (userMessage != null)
             messageDao.upsert(userMessage)
 
-        if(userMessage == null) return
-
-        val messagesForModel = messages + userMessage
+        val messagesForModel = (messages + userMessage).filterNotNull()
 
         var assistantMessage = Message(
             id = Random.nextLong(),
             conversationId = conversationID,
-            role = "assistant",
+            role = "model",
             textContent = "",
             images = emptyList(),
             toolCalls = listOf()
@@ -136,36 +135,26 @@ class ConversationWorker(appContext: Context, workerParams: WorkerParameters): C
         var usedTools = false
 
         llamaAPI.model!!.generateStream(messagesForModel.toStreamedText()).collect {
-//            val delta = chunk.choices.first().delta
-//            delta.toolCalls?.forEach {
-//                usedTools = true
-//                val action = Tools.getToolAction(it.function.name)
-//                if (action != null) {
-//                    val result = action(Json.decodeFromString(it.function.arguments), applicationContext)
-//                    val message = Message(
-//                        conversationId = conversationID,
-//                        role = "tool",
-//                        textContent = result.llmResponse,
-//                        displayContent = result.userResponse,
-//                        images = emptyList(),
-//                        toolCallId = it.id,
-//                    )
-//                    messageDao.upsert(message)
-//                }
-//                assistantMessage =
-//                    assistantMessage.copy(toolCalls = assistantMessage.toolCalls + it)
-//                messageDao.upsert(assistantMessage)
-//            }
-//            delta.content?.let {
-//                println("NEW CONTENT: $it")
-//                fullResponse += it
-//                assistantMessage = assistantMessage.copy(textContent = fullResponse)
-//                messageDao.upsert(assistantMessage)
-//            }
             println("NEW CONTENT: $it")
             fullResponse += it
-            assistantMessage = assistantMessage.copy(textContent = fullResponse)
-            messageDao.upsert(assistantMessage)
+            if(!fullResponse.startsWith("{")) {
+                assistantMessage = assistantMessage.copy(textContent = fullResponse)
+                messageDao.upsert(assistantMessage)
+            }
+        }
+        if(fullResponse.startsWith("{")) {
+            usedTools = true
+            val toolCall = Json.decodeFromString<ToolCall>(fullResponse)
+            val tool = Tools.ALL_TOOLS.find { it.name == toolCall.name }
+            if (tool != null) {
+                assistantMessage = assistantMessage.copy(toolCalls = assistantMessage.toolCalls + toolCall)
+                messageDao.upsert(assistantMessage)
+                val action = tool.action
+                val result = action(toolCall.parameters, applicationContext)
+                messageDao.upsert(
+                    Message(Random.nextLong(), conversationID, "tool", result.llmResponse, result.userResponse, emptyList())
+                )
+            }
         }
 
         if (usedTools) {
@@ -174,7 +163,7 @@ class ConversationWorker(appContext: Context, workerParams: WorkerParameters): C
         }
     }
 
-    suspend fun send(viewModel: DatabaseViewModel, messageDao: MessageDao, ds: DataStoreUtils, conversationID: Long, userInput: String, selectedImageUris: List<Uri>) {
+    suspend fun send(viewModel: DatabaseViewModel, messageDao: MessageDao, conversationID: Long, userInput: String, selectedImageUris: List<Uri>) {
         val imageBase64s = selectedImageUris.map { uri ->
             val inputStream = applicationContext.contentResolver.openInputStream(uri)
             val bitmap = BitmapFactory.decodeStream(inputStream)

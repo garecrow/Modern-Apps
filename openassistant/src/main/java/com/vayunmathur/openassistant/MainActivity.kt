@@ -34,7 +34,9 @@ class LLamaAPI(context: Context) {
 
     init {
         runBlocking {
-            model = LlamaModel.load(File(context.getExternalFilesDir(null), "model.gguf").absolutePath)
+            model = LlamaModel.load(File(context.getExternalFilesDir(null), "model.gguf").absolutePath) {
+                gpuLayers = 1
+            }
         }
     }
 

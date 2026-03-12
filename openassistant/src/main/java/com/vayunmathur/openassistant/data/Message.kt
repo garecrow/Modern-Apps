@@ -6,19 +6,14 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.vayunmathur.library.util.DatabaseItem
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class ToolCall(
-    val id: String,
-    val type: String,
-    val function: Function
-) {
-    @Serializable
-    data class Function(
-        val name: String,
-        val arguments: String
-    )
-}
+    val name: String,
+    val parameters: Map<String, JsonElement>
+)
 
 
 @Entity(
@@ -47,31 +42,55 @@ fun List<Message>.toStreamedText(): String {
     val builder = StringBuilder()
     builder.append("<bos>")
 
-    this.forEach { message ->
-        builder.append("<start_of_turn>${message.role}\n")
+    // Define the system instruction for tool use
+    val toolSystemPrompt = """
+        You have access to the following functions:
+        ${Tools.ALL_TOOLS.joinToString("\n") { it.systemDescription() }}
+        If you decide to invoke any of the function(s),
+        you MUST put it in the format of
+        {"name": function name, "parameters": {dictionary of argument name and its value}}
+        Even if there are no parameters, it must be an empty object
+        You must include nothing else in your response, including any formatting or markdown.
+        You also may only call one function at a time
+    """.trimIndent()
 
-        // 1. Handle Images: Gemma 3n expects a soft token placeholder for each image
+    // 1. Explicit System Turn
+    builder.append("<start_of_turn>system\n")
+    builder.append(toolSystemPrompt)
+    builder.append("<end_of_turn>\n")
+
+    this.forEach { message ->
+        if(message.role == "tool") {
+            builder.append("<start_of_turn>user\n")
+        } else {
+            builder.append("<start_of_turn>${message.role}\n")
+        }
+
+        // Handle Images
         message.images.forEach { _ ->
             builder.append("<image_soft_token>")
         }
 
-        // 2. Handle Tool Calls
+        // Handle Tool Calls
         if (message.toolCalls.isNotEmpty()) {
             message.toolCalls.forEach { call ->
-                builder.append("call:${call.function.name}(${call.function.arguments})\n")
+                // Outputting the JSON format we told the model to use
+                builder.append(Json.encodeToString(call))
+                builder.append("\n")
             }
         } else {
-            // 3. Handle Text Content
             builder.append(message.textContent.trim())
         }
 
         builder.append("<end_of_turn>\n")
     }
 
-    // Preparation for the next model response
+    // Preparation for the model's next response
     if (this.lastOrNull()?.role != "model") {
         builder.append("<start_of_turn>model\n")
     }
+
+    println(builder.toString())
 
     return builder.toString()
 }

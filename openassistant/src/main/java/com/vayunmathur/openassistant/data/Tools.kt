@@ -170,11 +170,5 @@ class Tools {
                 ToolResult(intentLauncher.launch(context,"com.vayunmathur.notes", "com.vayunmathur.notes.intents.InsertIntent", InsertNoteData::class, input), "Added notes")
             }
         )
-
-        val API_TOOLS = ALL_TOOLS.map { it.toTool() }
-
-        fun getToolAction(name: String): ToolFunctionType? {
-            return ALL_TOOLS.find { it.name == name }?.action
-        }
     }
 }
