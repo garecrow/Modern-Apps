@@ -83,6 +83,7 @@ import com.vayunmathur.openassistant.data.Message
 import com.vayunmathur.openassistant.data.Tools
 import com.vayunmathur.openassistant.data.database.MessageDao
 import com.vayunmathur.openassistant.data.database.MessageDatabase
+import com.vayunmathur.openassistant.data.toStreamedText
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +120,8 @@ class ConversationWorker(appContext: Context, workerParams: WorkerParameters): C
 
         if(userMessage == null) return
 
+        val messagesForModel = messages + userMessage
+
         var assistantMessage = Message(
             id = Random.nextLong(),
             conversationId = conversationID,
@@ -132,7 +135,7 @@ class ConversationWorker(appContext: Context, workerParams: WorkerParameters): C
         var fullResponse = ""
         var usedTools = false
 
-        llamaAPI.model!!.generateStream("<bos><start_of_turn>user ${userMessage.textContent}<end_of_turn>\n<start_of_turn>model\n").collect {
+        llamaAPI.model!!.generateStream(messagesForModel.toStreamedText()).collect {
 //            val delta = chunk.choices.first().delta
 //            delta.toolCalls?.forEach {
 //                usedTools = true

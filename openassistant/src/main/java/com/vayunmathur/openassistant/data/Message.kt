@@ -42,3 +42,36 @@ data class Message(
     val toolCalls: List<ToolCall> = listOf(),
     val timestamp: Long = System.currentTimeMillis()
 ): DatabaseItem
+
+fun List<Message>.toStreamedText(): String {
+    val builder = StringBuilder()
+    builder.append("<bos>")
+
+    this.forEach { message ->
+        builder.append("<start_of_turn>${message.role}\n")
+
+        // 1. Handle Images: Gemma 3n expects a soft token placeholder for each image
+        message.images.forEach { _ ->
+            builder.append("<image_soft_token>")
+        }
+
+        // 2. Handle Tool Calls
+        if (message.toolCalls.isNotEmpty()) {
+            message.toolCalls.forEach { call ->
+                builder.append("call:${call.function.name}(${call.function.arguments})\n")
+            }
+        } else {
+            // 3. Handle Text Content
+            builder.append(message.textContent.trim())
+        }
+
+        builder.append("<end_of_turn>\n")
+    }
+
+    // Preparation for the next model response
+    if (this.lastOrNull()?.role != "model") {
+        builder.append("<start_of_turn>model\n")
+    }
+
+    return builder.toString()
+}
