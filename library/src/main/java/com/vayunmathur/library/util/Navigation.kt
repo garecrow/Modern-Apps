@@ -1,8 +1,6 @@
 package com.vayunmathur.library.util
 
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,11 +29,8 @@ import androidx.navigation3.runtime.serialization.NavBackStackSerializer
 import androidx.navigation3.runtime.serialization.NavKeySerializer
 import androidx.navigation3.scene.DialogSceneStrategy
 import androidx.navigation3.ui.NavDisplay
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.launch
 
 // The Registry that holds the events
 class NavResultRegistry {
@@ -71,13 +66,6 @@ fun <T: NavKey> NavBackStack<T>.pop() {
     removeAt(lastIndex)
 }
 
-fun <T: NavKey> NavBackStack<T>.popThen(action: () -> Unit) {
-    CoroutineScope(Dispatchers.Main).launch {
-        pop()
-        action()
-    }
-}
-
 fun <T: NavKey> NavBackStack<T>.setLast(value: T) {
     set(lastIndex, value)
 }
@@ -101,8 +89,7 @@ fun <T: NavKey> NavBackStack<T>.reset(vararg keys: T) {
 fun <T: NavKey> MainNavigation(backStack: NavBackStack<T>, entryProvider:  EntryProviderScope<T>.() -> Unit) {
     val sceneStrategy: ListDetailSceneStrategy<T> = rememberListDetailSceneStrategy()
     val resultRegistry = remember { NavResultRegistry() }
-    Scaffold(contentWindowInsets = WindowInsets.displayCutout
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         CompositionLocalProvider(LocalNavResultRegistry provides resultRegistry) {
             NavDisplay(
                 modifier = Modifier.padding(paddingValues).consumeWindowInsets(paddingValues).imePadding(),
