@@ -37,6 +37,13 @@ body:
       placeholder: vX.X.X
     validations:
       required: true
+  - type: input
+    id: version
+    attributes:
+      label: Device Type
+      description: What device are you running and what Android version is it using? (e.g., Pixel 9 Android 15)
+    validations:
+      required: true
   - type: textarea
     id: bug_description
     attributes:
