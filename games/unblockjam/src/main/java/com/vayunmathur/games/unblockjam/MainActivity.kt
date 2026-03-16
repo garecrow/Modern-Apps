@@ -141,7 +141,8 @@ fun GameScreen(backStack: NavBackStack<Route>, completedLevelsRepository: Comple
     var levelStats by remember { mutableStateOf(completedLevelsRepository.getLevelStats()) }
 
     fun changeLevel(newLevelIndex: Int) {
-        backStack[backStack.lastIndex] = Route.Game(newLevelIndex)
+        val boundedIndex = newLevelIndex.coerceIn(0, LevelData.LEVELS.lastIndex)
+        backStack[backStack.lastIndex] = Route.Game(boundedIndex)
     }
 
     fun getCurrentMoves(): Int {
