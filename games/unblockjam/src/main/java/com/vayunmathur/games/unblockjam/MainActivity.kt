@@ -317,7 +317,7 @@ fun MovesInfoBox(moves: Int, bestScore: Int?, optimalMoves: Int) {
 fun InfoBox(title: String, content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.size(width = 150.dp, height = 120.dp),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(12.dp),
     ) {
         Column(
             modifier = Modifier.padding(8.dp),
@@ -353,7 +353,7 @@ fun GameBoard(
         Box(
             modifier = Modifier
                 .size(boardSize)
-                .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(12.dp))
         ) {
 
 
@@ -387,7 +387,7 @@ fun GameBoard(
                         .size(blockWidth, blockHeight)
                         .offset { IntOffset(currentOffsetX.roundToPx(), offsetY.roundToPx()) }
                         .padding(4.dp)
-                        .background(color, shape = RoundedCornerShape(4.dp))
+                        .background(color, shape = RoundedCornerShape(8.dp))
                         .pointerInput(block, levelData, isLevelWon) {
                             if (isLevelWon) return@pointerInput
 
