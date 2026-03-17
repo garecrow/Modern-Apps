@@ -17,9 +17,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.core.net.toUri
 import androidx.navigation3.runtime.NavKey
-import com.github.doyaaaaaken.kotlincsv.client.CsvFileReader
-import com.github.doyaaaaaken.kotlincsv.client.CsvReader
 import com.vayunmathur.clock.data.Alarm
 import com.vayunmathur.clock.data.ClockDatabase
 import com.vayunmathur.clock.data.Timer
@@ -40,15 +39,12 @@ import com.vayunmathur.library.util.buildDatabase
 import com.vayunmathur.library.util.rememberNavBackStack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
-import androidx.core.net.toUri
 
 lateinit var citiesToTimezones: Map<String, String>
 
@@ -184,6 +180,8 @@ fun createTimerNotificationChannels(context: Context) {
             description = "Notifications for scheduled alarms"
             // Optional: Set a specific sound for the channel here
             setBypassDnd(true) // Allows alarm to ring during Doze/DND
+            setSound(null, null) // Service handles sound via MediaPlayer
+            enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
     ))

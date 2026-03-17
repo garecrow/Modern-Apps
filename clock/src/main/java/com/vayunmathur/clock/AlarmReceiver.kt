@@ -12,7 +12,6 @@ import com.vayunmathur.library.util.get
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -53,7 +52,6 @@ class AlarmReceiver : BroadcastReceiver() {
                 alarmScheduler.schedule(alarm)
             }
         }
-
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(alarmId.toInt(), builder.build())
     }

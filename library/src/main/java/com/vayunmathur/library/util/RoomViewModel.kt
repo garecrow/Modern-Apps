@@ -266,6 +266,8 @@ interface TrueDao<T: DatabaseItem> {
     suspend fun observeRawList(query: SupportSQLiteQuery): List<T>
     @RawQuery
     suspend fun observeRaw(query: SupportSQLiteQuery): T
+    @RawQuery
+    suspend fun observeRawNullable(query: SupportSQLiteQuery): T?
 }
 
 suspend inline fun <reified E : DatabaseItem> TrueDao<E>.getAll(): List<E> {
@@ -276,6 +278,11 @@ suspend inline fun <reified E : DatabaseItem> TrueDao<E>.getAll(): List<E> {
 suspend inline fun <reified E : DatabaseItem> TrueDao<E>.get(id: Long): E {
     val tableName = E::class.simpleName!!
     return observeRaw(SimpleSQLiteQuery("SELECT * FROM $tableName WHERE id = $id"))
+}
+
+suspend inline fun <reified E : DatabaseItem> TrueDao<E>.getNullable(id: Long): E? {
+    val tableName = E::class.simpleName!!
+    return observeRawNullable(SimpleSQLiteQuery("SELECT * FROM $tableName WHERE id = $id"))
 }
 
 val databases: MutableMap<KClass<*>, RoomDatabase> = mutableMapOf()
