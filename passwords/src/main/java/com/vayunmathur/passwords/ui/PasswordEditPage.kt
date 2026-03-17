@@ -96,13 +96,12 @@ fun PasswordEditPage(backStack: NavBackStack<Route>, id: Long, viewModel: Databa
                 )
 
                 if (pass.isNew()) {
-                    viewModel.upsert(newPass) { id ->
+                    viewModel.upsertAsync(newPass) { id ->
                         backStack.setLast(Route.PasswordPage(id))
                     }
                 } else {
-                    viewModel.upsert(newPass) {
-                        backStack.removeLastOrNull()
-                    }
+                    viewModel.upsertAsync(newPass)
+                    backStack.removeLastOrNull()
                 }
             }) {
                 IconSave()

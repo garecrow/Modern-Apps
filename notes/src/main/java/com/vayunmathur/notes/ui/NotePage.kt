@@ -52,9 +52,8 @@ fun NotePage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, noteI
                 if(isEditing) IconVisible() else IconEdit()
             }
             IconButton(onClick = {
-                viewModel.delete(note) {
-                    backStack.pop()
-                }
+                viewModel.delete(note)
+                backStack.pop()
             }) {
                 IconDelete()
             }

@@ -102,14 +102,14 @@ class LocationTrackingService : Service() {
                     val inWaypoint = waypoints.find { havershine(it.coord, lastLocation.coord) < it.range }
                     if(inWaypoint != null) {
                         if(inWaypoint.name != user.locationName)
-                            viewModel.upsert(user.copy(locationName = inWaypoint.name, lastLocationChangeTime = lastLocation.timestamp))
+                            viewModel.upsertAsync(user.copy(locationName = inWaypoint.name, lastLocationChangeTime = lastLocation.timestamp))
                     } else {
                         val address =
                             fetchAddress(lastLocation.coord.lat, lastLocation.coord.lon)?.let {
                                 it.featureName ?: it.thoroughfare
                             } ?: "Unknown Location"
                         if(user.locationName != address)
-                            viewModel.upsert(user.copy(locationName = address, lastLocationChangeTime = lastLocation.timestamp))
+                            viewModel.upsertAsync(user.copy(locationName = address, lastLocationChangeTime = lastLocation.timestamp))
                     }
                 }
             }

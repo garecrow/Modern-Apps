@@ -92,7 +92,7 @@ fun MapView(
         delay(1000)
         if (users.isEmpty()) {
             withContext(Dispatchers.IO) {
-                viewModel.upsert(
+                viewModel.upsertAsync(
                     User(
                         "Me",
                         null,

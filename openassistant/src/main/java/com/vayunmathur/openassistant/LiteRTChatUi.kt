@@ -350,10 +350,7 @@ fun LiteRTChatUi(backStack: NavBackStack<Route>, conversationId: Long, viewModel
                                             var currentId = conversationId
                                             if (currentId == 0L) {
                                                 val newConv = Conversation(title = "New Conversation")
-                                                currentId =
-                                                    viewModel.getDaoInterface<Conversation>().dao.upsert(
-                                                        newConv
-                                                    )
+                                                currentId = viewModel.upsert(newConv)
                                                 backStack.reset(Route.ConversationPage(currentId))
                                             }
 
@@ -366,7 +363,7 @@ fun LiteRTChatUi(backStack: NavBackStack<Route>, conversationId: Long, viewModel
                                                 hasAudio = recordedAudioFile != null,
                                                 timestamp = Clock.System.now().toEpochMilliseconds()
                                             )
-                                            viewModel.getDaoInterface<Message>().dao.upsert(userMsg)
+                                            viewModel.upsert(userMsg)
 
                                             // 2. Start Service with the message payload
                                             val intent =

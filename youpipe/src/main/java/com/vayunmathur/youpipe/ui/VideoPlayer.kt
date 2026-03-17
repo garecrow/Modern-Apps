@@ -154,7 +154,7 @@ fun VideoPlayer(
         while (true) {
             if (!isDragging && player.isPlaying) {
                 currentPosition = player.currentPosition.coerceAtLeast(0L)
-                viewModel.upsert(HistoryVideo.fromVideoData(videoInfo.copy(duration = duration), currentPosition))
+                viewModel.upsertAsync(HistoryVideo.fromVideoData(videoInfo.copy(duration = duration), currentPosition))
             }
             delay(300)
         }

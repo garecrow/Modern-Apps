@@ -46,7 +46,7 @@ class NavResultRegistry {
 
 // The Composable helper (The "ResultEffect" you saw)
 @Composable
-inline fun <reified T> ResultEffect(key: String, crossinline onResult: (T) -> Unit) {
+inline fun <reified T> ResultEffect(key: String, crossinline onResult: suspend (T) -> Unit) {
     val registry = LocalNavResultRegistry.current
     LaunchedEffect(registry) {
         registry.results.collect { (k, result) ->

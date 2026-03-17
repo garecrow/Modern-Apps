@@ -263,14 +263,14 @@ class InferenceService : Service() {
 
     // Database interaction placeholders - implementation should be provided by your DB layer
     private suspend fun fetchHistoryFromDb(id: Long): List<Message> = viewModel.getAll<Message>().filter { it.conversationId == id }
-    private suspend fun upsertMessageToDb(msg: Message): Long = viewModel.getDaoInterface<Message>().dao.upsert(msg)
+    private suspend fun upsertMessageToDb(msg: Message): Long = viewModel.upsert(msg)
     private suspend fun updateMessageInDb(id: Long, text: String) {
-        val newMsg = viewModel.getAll<Message>().find { it.id == id }!!.copy(text = text)
+        val newMsg = viewModel.get<Message>(id).copy(text = text)
         upsertMessageToDb(newMsg)
     }
     private suspend fun updateTitleInDb(id: Long, title: String) {
-        val newMsg = viewModel.getAll<Conversation>().find { it.id == id }!!.copy(title = title)
-        viewModel.getDaoInterface<Conversation>().dao.upsert(newMsg)
+        val newMsg = viewModel.get<Conversation>(id).copy(title = title)
+        viewModel.upsert(newMsg)
     }
 
     override fun onDestroy() {

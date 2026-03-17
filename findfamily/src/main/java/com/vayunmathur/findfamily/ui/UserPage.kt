@@ -72,7 +72,7 @@ fun UserPage(platform: Platform, backStack: NavBackStack<Route>, viewModel: Data
     var historicalPosition by remember { mutableStateOf<Position?>(null) }
 
     val requestPickContact1 = platform.requestPickContact { name, photo ->
-        viewModel.upsert(selectedUser.copy(name = name, photo = photo))
+        viewModel.upsertAsync(selectedUser.copy(name = name, photo = photo))
     }
 
     Scaffold(topBar = { TopAppBar({}, navigationIcon = { IconNavigation(backStack) }, actions = {
@@ -102,7 +102,7 @@ fun UserPage(platform: Platform, backStack: NavBackStack<Route>, viewModel: Data
                             Checkbox(
                                 selectedUser.sendingEnabled,
                                 { send ->
-                                    viewModel.upsert(selectedUser.copy(sendingEnabled = send))
+                                    viewModel.upsertAsync(selectedUser.copy(sendingEnabled = send))
                                 })
                         }
                     }

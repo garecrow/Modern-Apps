@@ -5,9 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,8 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -34,9 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,7 +49,6 @@ import com.vayunmathur.library.ui.IconAdd
 import com.vayunmathur.library.ui.IconDelete
 import com.vayunmathur.library.ui.IconPause
 import com.vayunmathur.library.ui.IconPlay
-import com.vayunmathur.library.ui.ListPage
 import com.vayunmathur.library.util.BottomNavBar
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.nowState
@@ -157,7 +150,7 @@ fun TimerCard(timer: Timer, now: Instant, viewModel: DatabaseViewModel) {
                     FilledTonalButton(onClick = {
                         val newLength = timer.remainingLength + 1.minutes
                         val updatedTimer = timer.copy(remainingLength = newLength)
-                        viewModel.upsert(updatedTimer)
+                        viewModel.upsertAsync(updatedTimer)
 
                         // If it's already running, update the notification immediately
                         if (timer.isRunning) {
@@ -173,11 +166,11 @@ fun TimerCard(timer: Timer, now: Instant, viewModel: DatabaseViewModel) {
                     FilledTonalButton(
                         onClick = {
                             if (timer.isRunning) {
-                                viewModel.upsert(timer.stopped())
+                                viewModel.upsertAsync(timer.stopped())
                                 sendTimerNotification(context, timer, false)
                             } else {
                                 val startedTimer = timer.started()
-                                viewModel.upsert(startedTimer)
+                                viewModel.upsertAsync(startedTimer)
                                 // We pass the current realRemainingTime to the service
                                 sendTimerNotification(context, startedTimer, true)
                             }

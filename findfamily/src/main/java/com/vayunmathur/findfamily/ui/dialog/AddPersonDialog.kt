@@ -105,7 +105,7 @@ fun AddPersonDialog(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel
                             null,
                             userid.decodeBase26()
                         )
-                        viewModel.upsert(userToAdd, {
+                        viewModel.upsertAsync(userToAdd, {
                             backStack.pop()
                         })
                     },

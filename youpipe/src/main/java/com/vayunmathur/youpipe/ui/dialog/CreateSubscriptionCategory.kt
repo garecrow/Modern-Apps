@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateSubscriptionCategory(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, id: String?) {
-    val categoriesDao = viewModel.getDaoInterface<SubscriptionCategory>().dao as SubscriptionCategoryDao
+    val categoriesDao = viewModel.getDao<SubscriptionCategory>() as SubscriptionCategoryDao
     val subscriptions by viewModel.data<Subscription>().collectAsState()
     val categories by viewModel.data<SubscriptionCategory>().collectAsState()
     val categoryNames = categories.map { it.category }

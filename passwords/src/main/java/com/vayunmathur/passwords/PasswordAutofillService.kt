@@ -104,9 +104,9 @@ class PasswordAutofillService : AutofillService() {
                 val existing = viewModel.getAll<Password>().firstOrNull { it.userId == username }
 
                 if (existing != null) {
-                    viewModel.upsert(existing.copy(password = password))
+                    viewModel.upsertAsync(existing.copy(password = password))
                 } else {
-                    viewModel.upsert(
+                    viewModel.upsertAsync(
                         Password(
                             name = "New Login",
                             userId = username,

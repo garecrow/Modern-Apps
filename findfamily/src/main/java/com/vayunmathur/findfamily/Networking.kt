@@ -143,7 +143,7 @@ object Networking {
         } else {
             getKey(user.id)?.also {
                 val keyString = Base64.encode(it.encodeToByteArray(RSA.PublicKey.Format.PEM))
-                viewModel.upsert(user.copy(encryptionKey = keyString))
+                viewModel.upsertAsync(user.copy(encryptionKey = keyString))
             }
         } ?: return false
         return makeRequest("/api/location/publish", encryptLocation(location, user.id, key)) ?: false

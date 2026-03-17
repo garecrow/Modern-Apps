@@ -53,8 +53,6 @@ fun HomeScreen(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
     val context = LocalContext.current
     val playbackManager = remember { PlaybackManager.getInstance(context) }
 
-    val coroutineScope = rememberCoroutineScope()
-
     Scaffold(bottomBar = {
         BottomNavBar(backStack, listOf(
             BottomBarItem("Home", Route.Home, R.drawable.baseline_library_music_24),
@@ -75,21 +73,29 @@ fun HomeScreen(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
             }, searchEnabled = true, bottomBar = {
                 PlayingBottomBar(playbackManager, backStack)
             }, fab = {
-                FloatingActionButton({
-                    coroutineScope.launch {
-                        val allSongs = viewModel.getAll<Music>()
-                        val toPlayIndex = Random.nextInt(allSongs.size)
-                        playbackManager.playSong(allSongs, toPlayIndex)
-                        if (!playbackManager.shuffleMode.value)
-                            playbackManager.toggleShuffle()
-                    }
-                }) {
-                    Icon(painterResource(R.drawable.ic_shuffle), null)
-                }
+                ShufflePlayFab(viewModel, playbackManager)
             })
         }
     }
 }
+
+@Composable
+fun ShufflePlayFab(viewModel: DatabaseViewModel, playbackManager: PlaybackManager) {
+    val coroutineScope = rememberCoroutineScope()
+
+    FloatingActionButton({
+        coroutineScope.launch {
+            val allSongs = viewModel.getAll<Music>()
+            val toPlayIndex = Random.nextInt(allSongs.size)
+            playbackManager.playSong(allSongs, toPlayIndex)
+            if (!playbackManager.shuffleMode.value)
+                playbackManager.toggleShuffle()
+        }
+    }) {
+        Icon(painterResource(R.drawable.ic_shuffle), null)
+    }
+}
+
 
 @Composable
 fun PlayingBottomBar(

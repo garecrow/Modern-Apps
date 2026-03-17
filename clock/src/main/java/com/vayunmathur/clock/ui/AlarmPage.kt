@@ -89,7 +89,7 @@ fun AlarmCard(
                 )
                 Row {
                     Switch(checked = alarm.enabled, onCheckedChange = {
-                        viewModel.upsert(alarm.copy(enabled = it))
+                        viewModel.upsertAsync(alarm.copy(enabled = it))
                     })
                     IconButton({
                         viewModel.delete(alarm)
@@ -104,7 +104,7 @@ fun AlarmCard(
                         checked = alarm.days and (1 shl idx) != 0,
                         onCheckedChange = {
                             val newDays = if (alarm.days and (1 shl idx) != 0) alarm.days and (1 shl idx).inv() else alarm.days or (1 shl idx)
-                            viewModel.upsert(alarm.copy(days = newDays))
+                            viewModel.upsertAsync(alarm.copy(days = newDays))
                         }
                     ) {
                         Text(day.toString())

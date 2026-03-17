@@ -9,7 +9,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,7 +46,7 @@ fun NewTimerDialog(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel)
                     }
                     Button({
                         val timer = Timer(true, name, Clock.System.now(), minutes!!.minutes + seconds!!.seconds, minutes!!.minutes + seconds!!.seconds)
-                        viewModel.upsert(timer) {
+                        viewModel.upsertAsync(timer) {
                             sendTimerNotification(context, timer.copy(id = it), true)
                         }
                         backStack.pop()

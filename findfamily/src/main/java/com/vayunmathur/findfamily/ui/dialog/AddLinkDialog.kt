@@ -67,7 +67,7 @@ fun AddLinkDialog(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                                 Base64.encode(keypair.publicKey.encodeToByteArray(RSA.PublicKey.Format.PEM)),
                                 Clock.System.now() + options[expiryTime]!!
                             )
-                            viewModel.upsert(newLink)
+                            viewModel.upsertAsync(newLink)
                             backStack.pop()
                         }
                     },

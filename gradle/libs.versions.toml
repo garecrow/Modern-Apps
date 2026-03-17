@@ -8,7 +8,7 @@ ksp = "2.3.4"
 coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.10.0"
 lifecycleViewmodel = "2.10.0"
-litertlmAndroid = "0.8.0"
+litertlmAndroid = "0.9.0-alpha06"
 workRuntimeKtx = "2.11.1"
 datastorePreferences = "1.2.0"
 

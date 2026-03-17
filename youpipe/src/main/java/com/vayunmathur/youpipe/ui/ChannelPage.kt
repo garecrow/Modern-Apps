@@ -81,7 +81,7 @@ fun ChannelPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, ch
                 val existingSubscription = subscriptions.firstOrNull { it.channelID == channelID }
                 if(existingSubscription == null) {
                     Button({
-                        viewModel.upsert(Subscription(name = it.name, channelID = channelID, avatarURL = it.avatar))
+                        viewModel.upsertAsync(Subscription(name = it.name, channelID = channelID, avatarURL = it.avatar))
                     }, Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                         Text("Subscribe")
                     }

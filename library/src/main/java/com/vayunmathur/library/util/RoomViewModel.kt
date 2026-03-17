@@ -28,14 +28,11 @@ import androidx.room.Upsert
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -48,36 +45,13 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
-class DaoInterface<T: DatabaseItem>(val dao: TrueDao<T>, val viewModelScope: CoroutineScope) {
-    fun delete(t: T, andThen: (Int) -> Unit = {}) {
-        viewModelScope.launch {
-            val id = dao.delete(t)
-            andThen(id)
-        }
-    }
-
-    fun upsert(t: T, andThen: (Long) -> Unit = {}) {
-        viewModelScope.launch {
-            val id = dao.upsert(t)
-            andThen(id)
-        }
-    }
-
-    fun upsertAll(t: List<T>) {
-        viewModelScope.launch {
-            dao.upsertAll(t)
-        }
-    }
-}
 
 class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>, TrueDao<*>>, val matchingDao: MatchingDao? = null) : ViewModel() {
-    val daoMap = daos.associate {
-        it.first to DaoInterface(it.second, viewModelScope)
-    }
+    val daos = daos.associate { it.first to it.second }
 
     inline fun <reified A: DatabaseItem, reified B: DatabaseItem> addPairs(pairs: List<Pair<A, B>>) {
-        val classAIndex = daoMap.keys.indexOf(A::class)
-        val classBIndex = daoMap.keys.indexOf(B::class)
+        val classAIndex = daos.keys.indexOf(A::class)
+        val classBIndex = daos.keys.indexOf(B::class)
         val type = min(classAIndex, classBIndex) + 100 * max(classAIndex, classBIndex)
         val pairs = if(classAIndex < classBIndex) pairs else pairs.map { it.second to it.first }
         viewModelScope.launch {
@@ -92,8 +66,8 @@ class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>,
     }
 
     suspend inline fun <reified A: DatabaseItem, reified B: DatabaseItem> getMatches(a: Long): List<Long> {
-        val classAIndex = daoMap.keys.indexOf(A::class)
-        val classBIndex = daoMap.keys.indexOf(B::class)
+        val classAIndex = daos.keys.indexOf(A::class)
+        val classBIndex = daos.keys.indexOf(B::class)
         val type = min(classAIndex, classBIndex) + 100 * max(classAIndex, classBIndex)
         val ids = if(classAIndex < classBIndex) matchingDao!!.getFromLeft(a, type) else matchingDao!!.getFromRight(a, type)
         return ids
@@ -103,8 +77,8 @@ class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>,
 
     @Composable
     inline fun <reified A: DatabaseItem, reified B: DatabaseItem> getMatchesState(a: Long): State<List<Long>> {
-        val classAIndex = daoMap.keys.indexOf(A::class)
-        val classBIndex = daoMap.keys.indexOf(B::class)
+        val classAIndex = daos.keys.indexOf(A::class)
+        val classBIndex = daos.keys.indexOf(B::class)
         val type = min(classAIndex, classBIndex) + 100 * max(classAIndex, classBIndex)
 
         val matches by matchesStateFlow!!.collectAsState()
@@ -114,10 +88,10 @@ class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>,
     }
 
 
-    inline fun <reified E : DatabaseItem> getDaoInterface(): DaoInterface<E> {
-        val daoInterface = daoMap[E::class] ?: throw Exception("No DAO registered for ${E::class.simpleName}")
+    inline fun <reified E : DatabaseItem> getDao(): TrueDao<E> {
+        val dao = daos[E::class] ?: throw Exception("No DAO registered for ${E::class.simpleName}")
         @Suppress("UNCHECKED_CAST")
-        return daoInterface as DaoInterface<E>
+        return dao as TrueDao<E>
     }
 
     @Composable
@@ -134,22 +108,11 @@ class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>,
         return derived
     }
 
-    inline fun <reified E: DatabaseItem> upsertAll(items: List<E>) {
-        getDaoInterface<E>().upsertAll(items)
-    }
-
-    inline fun <reified E: DatabaseItem> replaceAll(items: List<E>) {
-        database.openHelper.writableDatabase.delete(E::class.simpleName!!, null, null)
-        upsertAll(items)
-    }
-
     @Composable
     inline fun <reified E : DatabaseItem> getEditable(
         initialId: Long,
         crossinline default: () -> E? = { null }
     ): MutableState<E> {
-        val daoInterface = getDaoInterface<E>()
-
         // 1. Track the current ID. If it's 0, it will be updated after the first upsert.
         var currentId by remember { mutableLongStateOf(initialId) }
 
@@ -177,7 +140,7 @@ class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>,
                         localState.value = newValue
 
                         // Push to database
-                        daoInterface.upsert(newValue) { newId ->
+                        upsertAsync(newValue) { newId ->
                             // If this was a new item (ID 0), update our pointer to the new ID
                             if (currentId == 0L) {
                                 currentId = newId
@@ -212,22 +175,45 @@ class DatabaseViewModel(val database: RoomDatabase, vararg daos: Pair<KClass<*>,
 
                     // 3. Clean up the observer when the UI stops listening
                     awaitClose { database.invalidationTracker.removeObserver(observer) }
-                }.stateIn(viewModelScope, SharingStarted.Eagerly, getAll())
+                }.stateIn(viewModelScope, SharingStarted.Eagerly, getAll<E>())
             } as StateFlow<List<E>>
         }
     }
 
-    suspend inline fun <reified E : DatabaseItem> getAll(): List<E> {
-        val tableName = E::class.simpleName!!
-        return getDaoInterface<E>().dao.observeRaw(SimpleSQLiteQuery("SELECT * FROM $tableName"))
+    inline fun <reified E: DatabaseItem> upsertAll(items: List<E>) {
+        viewModelScope.launch {
+            getDao<E>().upsertAll(items)
+        }
     }
 
-    inline fun <reified E: DatabaseItem> upsert(t: E, noinline andThen: (Long) -> Unit = {}) {
-        getDaoInterface<E>().upsert(t, andThen)
+    inline fun <reified E: DatabaseItem> replaceAll(items: List<E>) {
+        database.openHelper.writableDatabase.delete(E::class.simpleName!!, null, null)
+        upsertAll(items)
     }
 
-    inline fun <reified E: DatabaseItem> delete(t: E, noinline andThen: (Int) -> Unit = {}) {
-        getDaoInterface<E>().delete(t, andThen)
+    suspend inline fun <reified E: DatabaseItem> getAll(): List<E> {
+        return getDao<E>().getAll<E>()
+    }
+
+    suspend inline fun <reified E: DatabaseItem> get(id: Long): E {
+        return getDao<E>().get<E>(id)
+    }
+
+    inline fun <reified E: DatabaseItem> upsertAsync(t: E, noinline andThen: (Long) -> Unit = {}) {
+        viewModelScope.launch {
+            val id = getDao<E>().upsert(t)
+            andThen(id)
+        }
+    }
+
+    suspend inline fun <reified E: DatabaseItem> upsert(t: E): Long {
+        return getDao<E>().upsert(t)
+    }
+
+    inline fun <reified E: DatabaseItem> delete(t: E) {
+        viewModelScope.launch {
+            getDao<E>().delete(t)
+        }
     }
 }
 
@@ -277,7 +263,19 @@ interface TrueDao<T: DatabaseItem> {
     @Upsert
     suspend fun upsertAll(t: List<T>)
     @RawQuery
-    suspend fun observeRaw(query: SupportSQLiteQuery): List<T>
+    suspend fun observeRawList(query: SupportSQLiteQuery): List<T>
+    @RawQuery
+    suspend fun observeRaw(query: SupportSQLiteQuery): T
+}
+
+suspend inline fun <reified E : DatabaseItem> TrueDao<E>.getAll(): List<E> {
+    val tableName = E::class.simpleName!!
+    return observeRawList(SimpleSQLiteQuery("SELECT * FROM $tableName"))
+}
+
+suspend inline fun <reified E : DatabaseItem> TrueDao<E>.get(id: Long): E {
+    val tableName = E::class.simpleName!!
+    return observeRaw(SimpleSQLiteQuery("SELECT * FROM $tableName WHERE id = $id"))
 }
 
 val databases: MutableMap<KClass<*>, RoomDatabase> = mutableMapOf()

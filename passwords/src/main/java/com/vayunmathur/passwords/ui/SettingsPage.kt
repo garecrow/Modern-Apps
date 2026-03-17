@@ -142,7 +142,7 @@ private suspend fun importBitwardenCsvFromUri(contentResolver: ContentResolver, 
                 val websites = uriField.split(';', '\n', '\r').mapNotNull { it.trim().takeIf(String::isNotEmpty) }
 
                 val pass = Password(name = name, userId = username, password = password, totpSecret = totp, websites = websites)
-                viewModel.upsert(pass)
+                viewModel.upsertAsync(pass)
                 inserted++
             } catch (_: Exception) {
                 skipped++

@@ -63,17 +63,7 @@ fun ArtistScreen(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
             }, searchEnabled = true, bottomBar = {
                 PlayingBottomBar(playbackManager, backStack)
             }, fab = {
-                FloatingActionButton({
-                    coroutineScope.launch {
-                        val allSongs = viewModel.getAll<Music>()
-                        val toPlayIndex = Random.nextInt(allSongs.size)
-                        playbackManager.playSong(allSongs, toPlayIndex)
-                        if (!playbackManager.shuffleMode.value)
-                            playbackManager.toggleShuffle()
-                    }
-                }) {
-                    Icon(painterResource(R.drawable.ic_shuffle), null)
-                }
+                ShufflePlayFab(viewModel, playbackManager)
             })
         }
     }
