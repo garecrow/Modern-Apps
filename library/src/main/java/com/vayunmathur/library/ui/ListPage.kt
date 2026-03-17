@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -101,31 +100,35 @@ inline fun <reified T : DatabaseItem, Route : NavKey, reified EditPage : Route> 
                     }
                 }
             }
-        },
-        contentWindowInsets = WindowInsets(0)
+        }
     ) { paddingValues ->
-        // 2. Apply reorderable modifier to the LazyColumn
-        Column(Modifier.padding(paddingValues)) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = paddingValues
+        ) {
             if(searchEnabled) {
-                OutlinedTextField(searchQuery, { searchQuery = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, leadingIcon = {
-                    IconSearch()
-                })
-            }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(localData, key = { it.id }) { item ->
-                    ListItem({ headlineContent(item) }, Modifier.clickable {
-                        coroutineScope.launch {
-                            backStack.add(viewPage(item.id))
-                        }
-                    }, {}, { supportingContent(item) }, {leadingContent(item)}, {
-                        Row {
-                            trailingContent(item)
-                        }
-                    }, ListItemDefaults.colors())
+                item {
+                    OutlinedTextField(
+                        searchQuery,
+                        { searchQuery = it },
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        singleLine = true,
+                        leadingIcon = {
+                            IconSearch()
+                        })
                 }
+            }
+            items(localData, key = { it.id }) { item ->
+                ListItem({ headlineContent(item) }, Modifier.clickable {
+                    coroutineScope.launch {
+                        backStack.add(viewPage(item.id))
+                    }
+                }, {}, { supportingContent(item) }, {leadingContent(item)}, {
+                    Row {
+                        trailingContent(item)
+                    }
+                }, ListItemDefaults.colors())
             }
         }
     }
@@ -204,55 +207,55 @@ inline fun <reified T : ReorderableDatabaseItem<T>, Route : NavKey, reified Edit
                     IconAdd()
                 }
             }
-        },
-        contentWindowInsets = WindowInsets(0)
+        }
     ) { paddingValues ->
         // 2. Apply reorderable modifier to the LazyColumn
-        Column(Modifier.padding(paddingValues)) {
-            if(searchEnabled) {
-                OutlinedTextField(searchQuery, { searchQuery = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, leadingIcon = {
-                    IconSearch()
-                })
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = paddingValues
+        ) {
+            item {
+                if(searchEnabled) {
+                    OutlinedTextField(searchQuery, { searchQuery = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, leadingIcon = {
+                        IconSearch()
+                    })
+                }
             }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(localData, key = { it.id }) { item ->
-                    // 3. Wrap each item in ReorderableItem
-                    ReorderableItem(state, key = item.id) { isDragging ->
+            items(localData, key = { it.id }) { item ->
+                // 3. Wrap each item in ReorderableItem
+                ReorderableItem(state, key = item.id) { isDragging ->
 
-                        val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
+                    val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
 
-                        Surface(Modifier.animateItem(), shadowElevation = elevation) {
-                            ListItem({ headlineContent(item) }, Modifier.clickable {
-                                backStack.add(viewPage(item.id))
-                            }, {}, { supportingContent(item) }, {leadingContent(item)}, {
-                                Row {
-                                    trailingContent(item)
-                                    IconButton(
-                                        modifier = Modifier.draggableHandle(
-                                            onDragStarted = {
-                                                hapticFeedback.performHapticFeedback(
-                                                    HapticFeedbackType.GestureThresholdActivate
-                                                )
-                                            },
-                                            onDragStopped = {
-                                                hapticFeedback.performHapticFeedback(
-                                                    HapticFeedbackType.GestureEnd
-                                                )
-                                            },
-                                        ),
-                                        onClick = {},
-                                    ) {
-                                        Icon(
-                                            painterResource(R.drawable.drag_handle_24px),
-                                            contentDescription = "Reorder"
-                                        )
-                                    }
+                    Surface(Modifier.animateItem(), shadowElevation = elevation) {
+                        ListItem({ headlineContent(item) }, Modifier.clickable {
+                            backStack.add(viewPage(item.id))
+                        }, {}, { supportingContent(item) }, { leadingContent(item) }, {
+                            Row {
+                                trailingContent(item)
+                                IconButton(
+                                    modifier = Modifier.draggableHandle(
+                                        onDragStarted = {
+                                            hapticFeedback.performHapticFeedback(
+                                                HapticFeedbackType.GestureThresholdActivate
+                                            )
+                                        },
+                                        onDragStopped = {
+                                            hapticFeedback.performHapticFeedback(
+                                                HapticFeedbackType.GestureEnd
+                                            )
+                                        },
+                                    ),
+                                    onClick = {},
+                                ) {
+                                    Icon(
+                                        painterResource(R.drawable.drag_handle_24px),
+                                        contentDescription = "Reorder"
+                                    )
                                 }
-                            }, ListItemDefaults.colors(), elevation, elevation)
-                        }
+                            }
+                        }, ListItemDefaults.colors(), elevation, elevation)
                     }
                 }
             }
