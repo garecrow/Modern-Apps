@@ -17,12 +17,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.minus
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -51,8 +53,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -125,7 +129,6 @@ fun CalendarScreen(viewModel: ContactViewModel, backStack: NavBackStack<Route>) 
                 }
             )
         },
-        contentWindowInsets = WindowInsets(),
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 // persist currently viewed date before navigating to the new event page
@@ -136,14 +139,16 @@ fun CalendarScreen(viewModel: ContactViewModel, backStack: NavBackStack<Route>) 
             }
         },
     ) { innerPadding ->
-        Row(Modifier.padding(innerPadding).fillMaxSize()) {
+        Row(Modifier.padding(top = innerPadding.calculateTopPadding(), start = innerPadding.calculateLeftPadding(
+            LocalLayoutDirection.current
+        ), end = innerPadding.calculateRightPadding(LocalLayoutDirection.current)).fillMaxSize()) {
 
             var yOffset by remember { mutableStateOf(0.dp) }
 
             // Hour labels column - fixed on the left, shares vertical scroll state with grid
             Column {
                 Spacer(Modifier.height(yOffset))
-                Column(Modifier.verticalScroll(verticalState)) {
+                Column(Modifier.verticalScroll(verticalState).padding(bottom = innerPadding.calculateBottomPadding())) {
                     for (hour in 0..23) {
                         Box(modifier = Modifier.height(56.dp).width(56.dp)) {
                             Text(
@@ -223,7 +228,7 @@ fun CalendarScreen(viewModel: ContactViewModel, backStack: NavBackStack<Route>) 
                         HourlyGrid(timedByDateHour, weekDays, verticalState, onEventClick = { instance ->
                             viewModel.setLastViewedDate(dateViewing)
                             backStack.add(Route.Event(instance))
-                        })
+                        }, innerPadding)
                     }
                 }
             }
@@ -284,14 +289,15 @@ private fun HourlyGrid(
     timedByDateHour: Map<LocalDate, Map<Int, List<Instance>>>,
     weekDays: List<LocalDate>,
     verticalState: ScrollState,
-    onEventClick: (Instance) -> Unit
+    onEventClick: (Instance) -> Unit,
+    innerPadding: PaddingValues
 ) {
     // Each hour row height
     val hourRowHeight = 56.dp
     val minEventHeight = 18.dp
     val minEventWidth = 56.dp
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(verticalState)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(verticalState).padding(bottom = innerPadding.calculateBottomPadding())) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             // create 7 equal columns with weight so all 7 fit on screen
             for (d in weekDays) {

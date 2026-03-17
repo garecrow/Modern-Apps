@@ -70,7 +70,7 @@ fun EventScreen(viewModel: ContactViewModel, instance: Instance, backStack: NavB
                 }
             }
         })
-    }, contentWindowInsets = WindowInsets()) { paddingValues ->
+    }) { paddingValues ->
         Column(Modifier.padding(paddingValues)) {
             ListItem({
                 Text(event.title, style = MaterialTheme.typography.titleLarge)

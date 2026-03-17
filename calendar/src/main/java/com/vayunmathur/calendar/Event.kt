@@ -76,7 +76,7 @@ data class Event(
                     val allDay =
                         it.getInt(it.getColumnIndexOrThrow(CalendarContract.Events.ALL_DAY)) == 1
                     var timezone =
-                        it.getString(it.getColumnIndexOrThrow(CalendarContract.Events.EVENT_TIMEZONE))
+                        it.getStringOrNull(it.getColumnIndexOrThrow(CalendarContract.Events.EVENT_TIMEZONE)) ?: TimeZone.currentSystemDefault().id
                     try {
                         TimeZone.of(timezone)
                     } catch(e: DateTimeException) {

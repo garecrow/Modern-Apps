@@ -211,7 +211,7 @@ fun EditEventScreen(viewModel: ContactViewModel, eventId: Long?, backStack: NavB
         }) {
             IconSave()
         }
-    }, contentWindowInsets = WindowInsets()) { paddingValues ->
+    }) { paddingValues ->
         Column(Modifier.padding(paddingValues).verticalScroll(rememberScrollState())) {
             OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth().padding(8.dp), label = { Text("Title") })
 

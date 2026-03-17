@@ -84,7 +84,7 @@ data class Instance(
                         it.getLong(it.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN))
                     val end = it.getLong(it.getColumnIndexOrThrow(CalendarContract.Instances.END))
                     var timezone =
-                        it.getString(it.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_TIMEZONE))
+                        it.getStringOrNull(it.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_TIMEZONE)) ?: TimeZone.currentSystemDefault().id
                     try {
                         TimeZone.of(timezone)
                     } catch(e: DateTimeException) {
