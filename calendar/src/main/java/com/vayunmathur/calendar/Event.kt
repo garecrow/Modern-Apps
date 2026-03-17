@@ -9,7 +9,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import java.time.DateTimeException
-import java.time.ZoneId
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -79,9 +78,9 @@ data class Event(
                     var timezone =
                         it.getString(it.getColumnIndexOrThrow(CalendarContract.Events.EVENT_TIMEZONE))
                     try {
-                        ZoneId.of(timezone)
+                        TimeZone.of(timezone)
                     } catch(e: DateTimeException) {
-                        timezone = "UTC"
+                        timezone = TimeZone.currentSystemDefault().id
                     }
                     val deleted =
                         it.getInt(it.getColumnIndexOrThrow(CalendarContract.Events.DELETED)) == 1
