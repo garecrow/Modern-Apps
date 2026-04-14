@@ -4,7 +4,6 @@ import android.content.ContentValues
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -12,12 +11,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,14 +27,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,30 +47,50 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
+import com.vayunmathur.photos.data.Drawing
+import com.vayunmathur.photos.data.DrawingTool
+import com.vayunmathur.photos.data.toOffset
+import com.vayunmathur.photos.data.toSerializable
+import com.vayunmathur.library.util.ResultEffect
+import com.vayunmathur.photos.ui.DrawingSettingsResult
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.Dialog
 import androidx.core.net.toUri
 import androidx.compose.foundation.Image
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.vayunmathur.library.ui.IconBrush
 import com.vayunmathur.library.ui.IconCheck
 import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconCrop
+import com.vayunmathur.library.ui.IconDraw
+import com.vayunmathur.library.ui.IconEraser
 import com.vayunmathur.library.ui.IconNavigation
 import com.vayunmathur.library.ui.IconRotateLeft
 import com.vayunmathur.library.ui.IconRotateRight
 import com.vayunmathur.library.ui.IconSave
+import com.vayunmathur.library.ui.IconSettings
 import com.vayunmathur.library.ui.IconUndo
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.NavBackStack
@@ -78,6 +103,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import kotlin.math.roundToInt
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,11 +118,62 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
     var startCropRect by remember { mutableStateOf(Rect(0f, 0f, 1f, 1f)) }
     var showSaveMenu by remember { mutableStateOf(false) }
 
-    data class EditState(val rotation: Float, val cropRect: Rect)
+    var isDrawing by remember { mutableStateOf(false) }
+    val currentDrawingPoints = remember { mutableStateListOf<Offset>() }
+    val drawings = remember { mutableStateListOf<Drawing>() }
+    
+    var activeTool by remember { mutableStateOf(DrawingTool.Pen) }
+    
+    var penColor by remember { mutableStateOf(Color.Red) }
+    var penWidth by remember { mutableFloatStateOf(10f) }
+    
+    var highlighterColor by remember { mutableStateOf(Color.Yellow) }
+    var highlighterWidth by remember { mutableFloatStateOf(40f) }
+    var highlighterOpacity by remember { mutableFloatStateOf(0.5f) }
+    
+    var eraserWidth by remember { mutableFloatStateOf(30f) }
+
+    val currentStrokeColor = when(activeTool) {
+        DrawingTool.Pen -> penColor
+        DrawingTool.Highlighter -> highlighterColor
+        DrawingTool.Eraser -> Color.Transparent
+    }
+    
+    val currentStrokeWidth = when(activeTool) {
+        DrawingTool.Pen -> penWidth
+        DrawingTool.Highlighter -> highlighterWidth
+        DrawingTool.Eraser -> eraserWidth
+    }
+    
+    val currentStrokeOpacity = if (activeTool == DrawingTool.Highlighter) highlighterOpacity else 1f
+
+    ResultEffect<DrawingSettingsResult>("drawing_settings") { result ->
+        activeTool = result.tool
+        when (result.tool) {
+            DrawingTool.Pen -> {
+                penColor = Color(result.color)
+                penWidth = result.thickness
+            }
+            DrawingTool.Highlighter -> {
+                highlighterColor = Color(result.color)
+                highlighterWidth = result.thickness
+                highlighterOpacity = result.opacity
+            }
+            DrawingTool.Eraser -> {
+                eraserWidth = result.thickness
+            }
+        }
+    }
+
+    data class EditState(
+        val rotation: Float,
+        val cropRect: Rect,
+        val drawings: List<Drawing>
+    )
     val history = remember { mutableStateListOf<EditState>() }
 
     fun pushState() {
-        history.add(EditState(rotation, cropRect))
+        history.add(EditState(rotation, cropRect, drawings.toList()))
     }
 
     fun undo() {
@@ -104,6 +181,8 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
             val lastState = history.removeAt(history.size - 1)
             rotation = lastState.rotation
             cropRect = lastState.cropRect
+            drawings.clear()
+            drawings.addAll(lastState.drawings)
         }
     }
 
@@ -181,7 +260,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                     if (isCropping) {
                         IconButton(onClick = {
                             if (cropRect != startCropRect) {
-                                history.add(EditState(rotation, startCropRect))
+                                history.add(EditState(rotation, startCropRect, drawings.toList()))
                             }
                             isCropping = false
                         }) {
@@ -200,23 +279,32 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                         ) {
                             IconUndo()
                         }
-                        IconButton(onClick = {
-                            startCropRect = cropRect
-                            isCropping = true
-                        }) {
-                            IconCrop()
+                        if (!isDrawing) {
+                            IconButton(onClick = {
+                                startCropRect = cropRect
+                                isCropping = true
+                                isDrawing = false
+                            }) {
+                                IconCrop()
+                            }
+                            IconButton(onClick = {
+                                pushState()
+                                rotation -= 90f
+                            }) {
+                                IconRotateLeft()
+                            }
+                            IconButton(onClick = {
+                                pushState()
+                                rotation += 90f
+                            }) {
+                                IconRotateRight()
+                            }
                         }
                         IconButton(onClick = {
-                            pushState()
-                            rotation -= 90f
+                            isDrawing = !isDrawing
+                            isCropping = false
                         }) {
-                            IconRotateLeft()
-                        }
-                        IconButton(onClick = {
-                            pushState()
-                            rotation += 90f
-                        }) {
-                            IconRotateRight()
+                            if (isDrawing) IconClose() else IconDraw()
                         }
                         Box {
                             IconButton(onClick = { showSaveMenu = true }) {
@@ -232,7 +320,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                                         showSaveMenu = false
                                         photo?.let {
                                             scope.launch {
-                                                savePhoto(context, viewModel, it, rotation, cropRect, false)
+                                                savePhoto(context, it, rotation, cropRect, drawings.toList(), false)
                                                 backStack.pop()
                                             }
                                         }
@@ -244,7 +332,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                                         showSaveMenu = false
                                         photo?.let {
                                             scope.launch {
-                                                savePhoto(context, viewModel, it, rotation, cropRect, true)
+                                                savePhoto(context, it, rotation, cropRect, drawings.toList(), true)
                                                 backStack.pop()
                                             }
                                         }
@@ -304,12 +392,135 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                             )
                         }
 
+                        if (isDrawing) {
+                            Canvas(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(activeTool, currentStrokeColor, currentStrokeWidth, currentStrokeOpacity) {
+                                        detectDragGestures(
+                                            onDragStart = { offset ->
+                                                currentDrawingPoints.add(Offset(offset.x / size.width, offset.y / size.height))
+                                            },
+                                            onDragEnd = {
+                                                if (currentDrawingPoints.isNotEmpty()) {
+                                                    pushState()
+                                                    drawings.add(
+                                                        Drawing(
+                                                            points = currentDrawingPoints.map { it.toSerializable() },
+                                                            tool = activeTool,
+                                                            color = currentStrokeColor.toArgb(),
+                                                            strokeWidth = currentStrokeWidth,
+                                                            opacity = currentStrokeOpacity
+                                                        )
+                                                    )
+                                                    currentDrawingPoints.clear()
+                                                }
+                                            },
+                                            onDragCancel = {
+                                                currentDrawingPoints.clear()
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                val last = currentDrawingPoints.lastOrNull() ?: Offset.Zero
+                                                currentDrawingPoints.add(last + Offset(dragAmount.x / size.width, dragAmount.y / size.height))
+                                            }
+                                        )
+                                    }
+                                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                            ) {
+                                // Render existing drawings
+                                drawIntoCanvas {
+                                    drawings.forEach { drawing ->
+                                        val path = Path().apply {
+                                            drawing.points.firstOrNull()?.let { first ->
+                                                moveTo(first.x * size.width, first.y * size.height)
+                                                drawing.points.drop(1).forEach { next ->
+                                                    lineTo(next.x * size.width, next.y * size.height)
+                                                }
+                                            }
+                                        }
+                                        
+                                        drawPath(
+                                            path = path,
+                                            color = Color(drawing.color),
+                                            alpha = drawing.opacity,
+                                            style = Stroke(
+                                                width = drawing.strokeWidth,
+                                                cap = StrokeCap.Round,
+                                                join = StrokeJoin.Round
+                                            ),
+                                            blendMode = if (drawing.tool == DrawingTool.Eraser) BlendMode.Clear else BlendMode.SrcOver
+                                        )
+                                    }
+                                    
+                                    // Render current drawing
+                                    if (currentDrawingPoints.isNotEmpty()) {
+                                        val path = Path().apply {
+                                            moveTo(currentDrawingPoints.first().x * size.width, currentDrawingPoints.first().y * size.height)
+                                            currentDrawingPoints.drop(1).forEach { next ->
+                                                lineTo(next.x * size.width, next.y * size.height)
+                                            }
+                                        }
+                                        drawPath(
+                                            path = path,
+                                            color = currentStrokeColor,
+                                            alpha = currentStrokeOpacity,
+                                            style = Stroke(
+                                                width = currentStrokeWidth,
+                                                cap = StrokeCap.Round,
+                                                join = StrokeJoin.Round
+                                            ),
+                                            blendMode = if (activeTool == DrawingTool.Eraser) BlendMode.Clear else BlendMode.SrcOver
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         if (isCropping) {
                             CropOverlay(
                                 cropRect = cropRect,
                                 onCropRectChange = { cropRect = it }
                             )
                         }
+                    }
+                }
+            }
+
+            if (isDrawing) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = {
+                        if (activeTool == DrawingTool.Pen) {
+                            backStack.add(Route.DrawingSettings(activeTool, penColor.toArgb(), penWidth, 1f))
+                        } else {
+                            activeTool = DrawingTool.Pen
+                        }
+                    }) {
+                        IconDraw(tint = if (activeTool == DrawingTool.Pen) penColor else Color.White)
+                    }
+                    IconButton(onClick = {
+                        if (activeTool == DrawingTool.Highlighter) {
+                            backStack.add(Route.DrawingSettings(activeTool, highlighterColor.toArgb(), highlighterWidth, highlighterOpacity))
+                        } else {
+                            activeTool = DrawingTool.Highlighter
+                        }
+                    }) {
+                        IconBrush(tint = if (activeTool == DrawingTool.Highlighter) highlighterColor else Color.White)
+                    }
+                    IconButton(onClick = {
+                        if (activeTool == DrawingTool.Eraser) {
+                            backStack.add(Route.DrawingSettings(activeTool, Color.Transparent.toArgb(), eraserWidth, 1f))
+                        } else {
+                            activeTool = DrawingTool.Eraser
+                        }
+                    }) {
+                        IconEraser(tint = if (activeTool == DrawingTool.Eraser) Color.Yellow else Color.White)
                     }
                 }
             }
@@ -478,10 +689,10 @@ fun Handle(offset: Offset, onDrag: (Offset) -> Unit) {
 
 suspend fun savePhoto(
     context: android.content.Context,
-    viewModel: DatabaseViewModel,
     photo: Photo,
     rotation: Float,
     cropRect: Rect,
+    drawings: List<Drawing>,
     asCopy: Boolean
 ) = withContext(Dispatchers.IO) {
     val inputStream: InputStream? = context.contentResolver.openInputStream(photo.uri.toUri())
@@ -505,6 +716,43 @@ suspend fun savePhoto(
         transformedBitmap = Bitmap.createBitmap(transformedBitmap, left, top, width, height)
     }
 
+    // Draw onto the transformed bitmap
+    val resultBitmap = transformedBitmap.copy(Bitmap.Config.ARGB_8888, true)
+    val canvas = android.graphics.Canvas(resultBitmap)
+    val paint = android.graphics.Paint().apply {
+        isAntiAlias = true
+        strokeCap = android.graphics.Paint.Cap.ROUND
+        strokeJoin = android.graphics.Paint.Join.ROUND
+        style = android.graphics.Paint.Style.STROKE
+    }
+
+    // Use a layer to ensure eraser only affects drawings, not the base photo
+    if (drawings.isNotEmpty()) {
+        val saveCount = canvas.saveLayer(0f, 0f, resultBitmap.width.toFloat(), resultBitmap.height.toFloat(), null)
+
+        drawings.forEach { drawing ->
+            paint.color = drawing.color
+            paint.strokeWidth = drawing.strokeWidth
+            paint.alpha = (drawing.opacity * 255).roundToInt()
+
+            if (drawing.tool == DrawingTool.Eraser) {
+                paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
+            } else {
+                paint.xfermode = null
+            }
+
+            val path = android.graphics.Path()
+            drawing.points.firstOrNull()?.let { first ->
+                path.moveTo(first.x * resultBitmap.width, first.y * resultBitmap.height)
+                drawing.points.drop(1).forEach { next ->
+                    path.lineTo(next.x * resultBitmap.width, next.y * resultBitmap.height)
+                }
+            }
+            canvas.drawPath(path, paint)
+        }
+        canvas.restoreToCount(saveCount)
+    }
+
     val resolver = context.contentResolver
     val nowSeconds = System.currentTimeMillis() / 1000
     
@@ -520,7 +768,7 @@ suspend fun savePhoto(
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
         uri?.let {
             resolver.openOutputStream(it)?.use { out ->
-                transformedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                resultBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
             }
         }
     } else {
@@ -528,7 +776,7 @@ suspend fun savePhoto(
         val uri = photo.uri.toUri()
         try {
             resolver.openOutputStream(uri, "rwt")?.use { out ->
-                transformedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                resultBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
             }
             val updateValues = ContentValues().apply {
                 put(MediaStore.Images.Media.DATE_MODIFIED, nowSeconds)
@@ -539,3 +787,6 @@ suspend fun savePhoto(
         }
     }
 }
+
+typealias EditPhotoPageDrawing = Drawing
+

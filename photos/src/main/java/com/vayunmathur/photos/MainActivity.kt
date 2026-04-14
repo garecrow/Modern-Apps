@@ -31,9 +31,12 @@ import com.vayunmathur.photos.ui.GalleryPage
 import com.vayunmathur.photos.ui.MapPage
 import com.vayunmathur.photos.ui.PhotoPage
 import com.vayunmathur.photos.ui.EditPhotoPage
+import com.vayunmathur.photos.ui.DrawingSettingsPage
+import com.vayunmathur.photos.data.DrawingTool
 import kotlinx.serialization.Serializable
 import com.vayunmathur.photos.util.ImageLoader
 import com.vayunmathur.photos.util.SyncWorker
+import com.vayunmathur.library.util.DialogPage
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,6 +85,14 @@ sealed interface Route: NavKey {
     data class EditPhoto(val id: Long): Route
 
     @Serializable
+    data class DrawingSettings(
+        val tool: DrawingTool,
+        val currentColor: Int,
+        val currentThickness: Float,
+        val currentOpacity: Float
+    ): Route
+
+    @Serializable
     data object Map: Route
 }
 
@@ -103,6 +114,10 @@ fun Navigation(viewModel: DatabaseViewModel) {
 
         entry<Route.EditPhoto> {
             EditPhotoPage(backStack, viewModel, it.id)
+        }
+
+        entry<Route.DrawingSettings>(DialogPage()) {
+            DrawingSettingsPage(backStack, it.tool, it.currentColor, it.currentThickness, it.currentOpacity)
         }
     }
 }

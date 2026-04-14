@@ -147,3 +147,18 @@ fun IconChevronRight(tint: Color = LocalContentColor.current) {
 fun IconUndo(tint: Color = LocalContentColor.current) {
     Icon(painterResource(R.drawable.undo_24px), "Undo", tint = tint)
 }
+
+@Composable
+fun IconDraw(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.pen_24px), "Draw", tint = tint)
+}
+
+@Composable
+fun IconBrush(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.brush_24px), "Brush", tint = tint)
+}
+
+@Composable
+fun IconEraser(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.eraser_24px), "Eraser", tint = tint)
+}
