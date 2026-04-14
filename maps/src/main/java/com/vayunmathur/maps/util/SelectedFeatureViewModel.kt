@@ -56,10 +56,10 @@ class SelectedFeatureViewModel(application: Application): AndroidViewModel(appli
                     val result = try {
                         when (mode) {
                             RouteService.TravelMode.TRANSIT -> TransitRoute.computeRoute(routeFeature, pos)
-                            RouteService.TravelMode.BICYCLE, RouteService.TravelMode.WALK -> {
+                            RouteService.TravelMode.BICYCLE, RouteService.TravelMode.WALK, RouteService.TravelMode.DRIVE -> {
                                 OfflineRouter.getRoute(application, routeFeature, pos, mode)
                             }
-                            else -> RouteService.computeRoute(routeFeature, pos, mode)
+//                            else -> RouteService.computeRoute(routeFeature, pos, mode)
                         }
                     } catch (e: Exception) {
                         RouteService.EmptyRoute()

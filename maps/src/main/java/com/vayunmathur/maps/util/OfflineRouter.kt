@@ -7,8 +7,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.maplibre.spatialk.geojson.Position
 import java.io.File
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
 
 object OfflineRouter {
     init {
@@ -79,7 +81,7 @@ object OfflineRouter {
 
             RouteService.Step(
                 distanceMeters = raw.distanceMm / 1000.0,
-                staticDuration = (raw.duration10ms * 10).milliseconds,
+                staticDuration = (raw.duration10ms / 100.0).seconds,
                 polyline = positions,
                 navInstruction = RouteService.API.NavInstruction(maneuver, instructionText),
                 travelMode = mode

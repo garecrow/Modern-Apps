@@ -223,14 +223,35 @@ void init_lookup_table() {
     }
 }
 
-inline uint32_t fast_dist_mm(int32_t lat1_e7, int32_t lon1_e7, int32_t lat2_e7, int32_t lon2_e7) {
-    int64_t dlat = std::abs((int64_t)lat1_e7 - lat2_e7);
-    int64_t dlon = std::abs((int64_t)lon1_e7 - lon2_e7);
-    int64_t dy_mm = (dlat * 11131949LL) / 100000LL;
-    uint32_t scale_idx = (uint32_t)((lat1_e7 >> 19) + 2048);
-    uint32_t scale = g_lon_to_mm_scale[scale_idx & 4095];
-    int64_t dx_mm = (dlon * scale) >> 10;
-    return (uint32_t)sqrt(dx_mm * dx_mm + dy_mm * dy_mm);
+#include <cmath>
+
+inline uint32_t accurate_dist_mm(int32_t lat1_e7, int32_t lon1_e7, int32_t lat2_e7, int32_t lon2_e7) {
+    // Earth's mean radius in millimeters
+    // Using 6,371,000.8 meters = 6,371,000,800 mm
+    const double R = 6371000800.0;
+
+    // Convert e7 coordinates to double and then to Radians
+    double phi1 = (lat1_e7 * 1e-7) * DEG_TO_RAD;
+    double phi2 = (lat2_e7 * 1e-7) * DEG_TO_RAD;
+
+    double delta_phi = (lat2_e7 - lat1_e7) * 1e-7 * DEG_TO_RAD;
+    double delta_lambda = (lon2_e7 - lon1_e7) * 1e-7 * DEG_TO_RAD;
+
+    // The Haversine Formula:
+    // a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
+    // c = 2 ⋅ atan2( √a, √(1−a) )
+    // d = R ⋅ c
+
+    double s_dphi = sin(delta_phi / 2.0);
+    double s_dlamb = sin(delta_lambda / 2.0);
+
+    double a = s_dphi * s_dphi +
+               cos(phi1) * cos(phi2) *
+               s_dlamb * s_dlamb;
+
+    double c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
+
+    return (uint32_t)(R * c);
 }
 
 uint64_t latlng_to_spatial(double lat, double lon) {
@@ -441,7 +462,7 @@ int main(int argc, char* argv[]) {
                         uint32_t v_lid = get_local_id_by_osm(v_osm, id_to_local);
                         if (u_lid == 0xFFFFFFFF || v_lid == 0xFFFFFFFF) continue;
 
-                        uint32_t dist = fast_dist_mm(node_masters[u_lid].lat_e7, node_masters[u_lid].lon_e7,
+                        uint32_t dist = accurate_dist_mm(node_masters[u_lid].lat_e7, node_masters[u_lid].lon_e7,
                                                      node_masters[v_lid].lat_e7, node_masters[v_lid].lon_e7);
 
                         local_buffer.push_back({ u_lid, v_lid, dist, cw.name_offset, cw.type });
