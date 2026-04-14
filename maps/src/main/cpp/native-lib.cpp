@@ -56,17 +56,14 @@ static RoutingScratchpad g_scratchpad;
 static RadixHeap g_fwd_heap;
 static RadixHeap g_bwd_heap;
 
-// --- OPTIMIZATION: CACHED ZONE LOOKUP ---
-thread_local int g_last_zone_id = 0;
+uint32_t g_zone_max_ids[64];
 
+// Fast Lookup
 inline int get_zone_for_id(uint32_t global_id) {
-    if (__builtin_expect(global_id >= g_total_node_count, 0)) return -1;
-    if (__builtin_expect(global_id >= g_zone_offsets[g_last_zone_id] && global_id < g_zone_offsets[g_last_zone_id + 1], 1)) {
-        return g_last_zone_id;
+    for (int i = 0; i < 64; ++i) {
+        if (global_id < g_zone_max_ids[i]) return i;
     }
-    auto it = std::upper_bound(g_zone_offsets, g_zone_offsets + NUM_ZONES + 1, global_id);
-    g_last_zone_id = (int)std::distance(g_zone_offsets, it) - 1;
-    return g_last_zone_id;
+    return -1;
 }
 
 inline bool is_zone_mapped(int zone) {
@@ -400,7 +397,7 @@ jobjectArray reconstruct_path(JNIEnv* env, int mode, const RoutingContext& ctx) 
     }
 
     // Convert C++ steps to Java OfflineRouter$RawStep array
-    jclass stepClass = env->FindClass("com/vayunmathur/maps/OfflineRouter$RawStep");
+    jclass stepClass = env->FindClass("com/vayunmathur/maps/util/OfflineRouter$RawStep");
     jmethodID stepCtor = env->GetMethodID(stepClass, "<init>", "(ILjava/lang/String;JJ[D)V");
     jobjectArray res = env->NewObjectArray(steps.size(), stepClass, nullptr);
 
@@ -427,7 +424,7 @@ jobjectArray reconstruct_path(JNIEnv* env, int mode, const RoutingContext& ctx) 
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_vayunmathur_maps_OfflineRouter_init(JNIEnv* env, jobject thiz, jstring base_path) {
+Java_com_vayunmathur_maps_util_OfflineRouter_init(JNIEnv* env, jobject thiz, jstring base_path) {
     const char* path_raw = env->GetStringUTFChars(base_path, nullptr); std::string base(path_raw);
     if (!base.empty() && base.back() != '/') base += "/";
     auto m_file = [&](const std::string& p, size_t& s) -> void* {
@@ -449,6 +446,7 @@ Java_com_vayunmathur_maps_OfflineRouter_init(JNIEnv* env, jobject thiz, jstring 
         g_node_zones[i] = (NodeMaster*)n_ptr; g_edge_zones[i] = (Edge*)e_ptr;
         g_node_zone_sizes[i] = s_n; g_edge_zone_sizes[i] = s_e;
     }
+    for(int i=0; i<64; ++i) g_zone_max_ids[i] = g_zone_offsets[i+1];
     munmap(meta, s_meta);
     size_t s_r; g_road_names = (char*)m_file(base + "road_names.bin", s_r); g_road_names_size = s_r;
     for (int i = 0; i < 4096; ++i) {
@@ -469,7 +467,7 @@ Java_com_vayunmathur_maps_OfflineRouter_init(JNIEnv* env, jobject thiz, jstring 
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_vayunmathur_maps_OfflineRouter_findRouteNative(JNIEnv* env, jobject thiz, jdouble sLat, jdouble sLon, jdouble eLat, jdouble eLon, jint mode) {
+Java_com_vayunmathur_maps_util_OfflineRouter_findRouteNative(JNIEnv* env, jobject thiz, jdouble sLat, jdouble sLon, jdouble eLat, jdouble eLon, jint mode) {
     RoutingContext ctx; if (!prepare_routing(sLat, sLon, eLat, eLon, mode, ctx)) return nullptr;
     perform_search_loop(mode, ctx);
     if (ctx.meeting_node == 0xFFFFFFFF) {

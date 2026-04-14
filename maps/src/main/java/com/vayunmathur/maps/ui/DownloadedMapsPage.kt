@@ -93,7 +93,7 @@ fun DownloadedMapsPage(backStack: NavBackStack<Route>) {
                 // World Map Background Image
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data("file:///android_asset/world_map.png")
+                        .data("file:///android_asset/world_map.jpg")
                         .build(),
                     imageLoader = imageLoader,
                     contentDescription = null,
