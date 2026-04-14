@@ -51,6 +51,7 @@ struct FinalEdge {
     uint32_t dist_mm;
     uint32_t name_offset;
     uint8_t type;
+    uint8_t speed_limit; // Added
 };
 
 struct NodeTemp {
@@ -73,15 +74,16 @@ struct TmpEdge {
     uint32_t dist_mm;
     uint32_t name_offset;
     uint8_t type;
+    uint8_t speed_limit; // Added
     uint32_t sort_key() const { return source_lid; }
 };
 
-// Structure for caching road topology in RAM to avoid a 3rd PBF pass
 struct CachedWay {
     uint32_t name_offset;
-    uint32_t first_node_idx; // Offset into global topology vector
+    uint32_t first_node_idx;
     uint16_t node_count;
     uint8_t type;
+    uint8_t speed_limit; // Added
     bool oneway;
 };
 #pragma pack(pop)
@@ -223,34 +225,16 @@ void init_lookup_table() {
     }
 }
 
-#include <cmath>
-
 inline uint32_t accurate_dist_mm(int32_t lat1_e7, int32_t lon1_e7, int32_t lat2_e7, int32_t lon2_e7) {
-    // Earth's mean radius in millimeters
-    // Using 6,371,000.8 meters = 6,371,000,800 mm
     const double R = 6371000800.0;
-
-    // Convert e7 coordinates to double and then to Radians
     double phi1 = (lat1_e7 * 1e-7) * DEG_TO_RAD;
     double phi2 = (lat2_e7 * 1e-7) * DEG_TO_RAD;
-
     double delta_phi = (lat2_e7 - lat1_e7) * 1e-7 * DEG_TO_RAD;
     double delta_lambda = (lon2_e7 - lon1_e7) * 1e-7 * DEG_TO_RAD;
-
-    // The Haversine Formula:
-    // a = sin²(Δφ/2) + cos φ1 ⋅ cos φ2 ⋅ sin²(Δλ/2)
-    // c = 2 ⋅ atan2( √a, √(1−a) )
-    // d = R ⋅ c
-
     double s_dphi = sin(delta_phi / 2.0);
     double s_dlamb = sin(delta_lambda / 2.0);
-
-    double a = s_dphi * s_dphi +
-               cos(phi1) * cos(phi2) *
-               s_dlamb * s_dlamb;
-
+    double a = s_dphi * s_dphi + cos(phi1) * cos(phi2) * s_dlamb * s_dlamb;
     double c = 2.0 * atan2(sqrt(a), sqrt(1.0 - a));
-
     return (uint32_t)(R * c);
 }
 
@@ -282,12 +266,21 @@ inline uint32_t get_local_id_by_osm(uint64_t osm_id, const vector<IDMapping>& ma
     uint32_t tile_idx = osm_id >> ID_TILE_SHIFT;
     uint32_t start = g_id_tile_offsets[tile_idx];
     uint32_t end = g_id_tile_offsets[tile_idx + 1];
-
     auto it = lower_bound(mapping.begin() + start, mapping.begin() + end, IDMapping{osm_id, 0},
                           [](const IDMapping& a, const IDMapping& b) { return a.osm_id < b.osm_id; });
-
     if (it != mapping.begin() + end && it->osm_id == osm_id) return it->local_id;
     return 0xFFFFFFFF;
+}
+
+uint8_t parse_maxspeed(const char* str) {
+    if (!str) return 0;
+    char* endptr;
+    double val = strtod(str, &endptr);
+    if (val <= 0) return 0;
+    while (*endptr == ' ') endptr++;
+    if (strcmp(endptr, "mph") == 0) return (uint8_t)round(val * 1.60934);
+    if (strcmp(endptr, "knots") == 0) return (uint8_t)round(val * 1.852);
+    return (uint8_t)val;
 }
 
 uint8_t get_hw_id(const char* type) {
@@ -312,10 +305,6 @@ void print_progress(const string& label, uint64_t current, uint64_t total) {
     if (current >= total) cout << endl;
 }
 
-// ==========================================
-// MAIN PROCESSOR
-// ==========================================
-
 int main(int argc, char* argv[]) {
     if (argc < 2) { cerr << "Usage: " << argv[0] << " map.osm.pbf" << endl; return 1; }
 
@@ -327,7 +316,6 @@ int main(int argc, char* argv[]) {
     atomic<uint64_t> total_useful_nodes{0};
     atomic<uint64_t> total_edges{0};
 
-    // Way Caching Buffers
     vector<CachedWay> cached_ways;
     vector<uint64_t> way_nodes_topology;
     mutex way_cache_mtx;
@@ -364,6 +352,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
+                    uint8_t speed = parse_maxspeed(way.tags().get_value_by_key("maxspeed"));
                     bool oneway = (strcmp(way.tags().get_value_by_key("oneway", ""), "yes") == 0);
                     const auto& nodes = way.nodes();
 
@@ -376,7 +365,7 @@ int main(int argc, char* argv[]) {
                         local_topology.push_back(n.ref());
                     }
 
-                    local_ways.push_back({ n_off, topology_start, (uint16_t)nodes.size(), hw, oneway });
+                    local_ways.push_back({ n_off, topology_start, (uint16_t)nodes.size(), hw, speed, oneway });
                     total_edges += (nodes.size() - 1) * (oneway ? 1 : 2);
                 }
 
@@ -416,12 +405,10 @@ int main(int argc, char* argv[]) {
         }
         pool.wait_finished();
     }
-
     free(useful_nodes_mask);
 
     cout << "Parallel Radix Sorting Nodes..." << endl;
     parallel_radix_sort(nodes_raw, 64);
-
     vector<NodeMaster> node_masters(total_useful_nodes);
     vector<IDMapping> id_to_local(total_useful_nodes);
     vector<uint32_t> zone_node_counts(NUM_ZONES, 0);
@@ -444,30 +431,24 @@ int main(int argc, char* argv[]) {
         size_t n_ways = cached_ways.size();
         size_t chunk = n_ways / thread::hardware_concurrency();
         vector<future<void>> construction_tasks;
-
-        for (int t = 0; t < thread::hardware_concurrency(); ++t) {
+        for (int t = 0; t < (int)thread::hardware_concurrency(); ++t) {
             construction_tasks.push_back(async(launch::async, [&, t, chunk, n_ways]() {
                 size_t start_way = t * chunk;
-                size_t end_way = (t == thread::hardware_concurrency() - 1) ? n_ways : (t + 1) * chunk;
+                size_t end_way = (t == (int)thread::hardware_concurrency() - 1) ? n_ways : (t + 1) * chunk;
                 vector<TmpEdge> local_buffer;
                 local_buffer.reserve(10000);
-
                 for (size_t w = start_way; w < end_way; ++w) {
                     const auto& cw = cached_ways[w];
-                    for (size_t i = 0; i < cw.node_count - 1; ++i) {
+                    for (size_t i = 0; i < (size_t)cw.node_count - 1; ++i) {
                         uint64_t u_osm = way_nodes_topology[cw.first_node_idx + i];
                         uint64_t v_osm = way_nodes_topology[cw.first_node_idx + i + 1];
-
                         uint32_t u_lid = get_local_id_by_osm(u_osm, id_to_local);
                         uint32_t v_lid = get_local_id_by_osm(v_osm, id_to_local);
                         if (u_lid == 0xFFFFFFFF || v_lid == 0xFFFFFFFF) continue;
-
                         uint32_t dist = accurate_dist_mm(node_masters[u_lid].lat_e7, node_masters[u_lid].lon_e7,
-                                                     node_masters[v_lid].lat_e7, node_masters[v_lid].lon_e7);
-
-                        local_buffer.push_back({ u_lid, v_lid, dist, cw.name_offset, cw.type });
-                        if (!cw.oneway) local_buffer.push_back({ v_lid, u_lid, dist, cw.name_offset, cw.type });
-
+                                                         node_masters[v_lid].lat_e7, node_masters[v_lid].lon_e7);
+                        local_buffer.push_back({ u_lid, v_lid, dist, cw.name_offset, cw.type, cw.speed_limit });
+                        if (!cw.oneway) local_buffer.push_back({ v_lid, u_lid, dist, cw.name_offset, cw.type, cw.speed_limit });
                         if (local_buffer.size() >= 9000) {
                             uint64_t start = global_edge_idx.fetch_add(local_buffer.size());
                             memcpy(&tmp_edges[start], local_buffer.data(), local_buffer.size() * sizeof(TmpEdge));
@@ -524,7 +505,7 @@ int main(int argc, char* argv[]) {
                 node_masters[lid].edge_ptr = local_edge_ptr;
                 while (edge_start + local_edge_ptr < tmp_edges.size() && tmp_edges[edge_start + local_edge_ptr].source_lid == lid) {
                     const auto& te = tmp_edges[edge_start + local_edge_ptr];
-                    FinalEdge fe = { te.target_lid, te.dist_mm, te.name_offset, te.type };
+                    FinalEdge fe = { te.target_lid, te.dist_mm, te.name_offset, te.type, te.speed_limit };
                     edge_out.write((char*)&fe, sizeof(FinalEdge));
                     local_edge_ptr++;
                 }
