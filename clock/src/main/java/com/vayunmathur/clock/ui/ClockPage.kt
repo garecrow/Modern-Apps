@@ -1,5 +1,6 @@
 package com.vayunmathur.clock.ui
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vayunmathur.library.util.NavBackStack
@@ -45,6 +47,7 @@ import kotlinx.datetime.toLocalDateTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClockPage(backStack: NavBackStack<Route>, ds: DataStoreUtils) {
+    val context = LocalContext.current
     val now by nowState()
     val time = now.toLocalDateTime(TimeZone.currentSystemDefault())
     val timeZones by ds.stringSetFlow("time_zones").collectAsState(setOf())
@@ -60,15 +63,29 @@ fun ClockPage(backStack: NavBackStack<Route>, ds: DataStoreUtils) {
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = paddingValues, verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             item {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(time.time.format(LocalTime.Format {
-                        amPmHour(Padding.NONE)
-                        chars(":")
-                        minute()
-                        chars(":")
-                        second()
-                    }), style = MaterialTheme.typography.displayLarge)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if(time.time.hour >= 12) stringResource(R.string.time_pm) else stringResource(R.string.time_am), style = MaterialTheme.typography.displayMedium)
+                    if(DateFormat.is24HourFormat(context)) {
+                        Text(time.time.format(LocalTime.Format {
+                            hour(Padding.ZERO)
+                            chars(":")
+                            minute()
+                            chars(":")
+                            second()
+                        }), style = MaterialTheme.typography.displayLarge)
+                    } else {
+                        Text(time.time.format(LocalTime.Format {
+                            amPmHour(Padding.NONE)
+                            chars(":")
+                            minute()
+                            chars(":")
+                            second()
+                        }), style = MaterialTheme.typography.displayLarge)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (time.time.hour >= 12) stringResource(R.string.time_pm) else stringResource(
+                                R.string.time_am
+                            ), style = MaterialTheme.typography.displayMedium
+                        )
+                    }
                 }
             }
             item {

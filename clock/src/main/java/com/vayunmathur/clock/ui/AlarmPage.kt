@@ -1,5 +1,6 @@
 package com.vayunmathur.clock.ui
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -92,13 +93,22 @@ fun AlarmCard(
     Card {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    alarm.time.format(LocalTime.Format {
+                val format = if(DateFormat.is24HourFormat(context)) {
+                    LocalTime.Format {
+                        hour(Padding.ZERO)
+                        char(':')
+                        minute()
+                    }
+                } else {
+                    LocalTime.Format {
                         amPmHour(Padding.NONE)
                         char(':')
                         minute()
                         amPmMarker(" AM", " PM")
-                    }),
+                    }
+                }
+                Text(
+                    alarm.time.format(format),
                     Modifier.clickable{ backStack.add(Route.AlarmSetTimeDialog(alarm.id, alarm.time))},
                     style = MaterialTheme.typography.displayMedium
                 )
