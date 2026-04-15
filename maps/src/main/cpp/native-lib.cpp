@@ -37,6 +37,7 @@ struct Edge {
     uint32_t dist_mm;
     uint32_t name_offset;
     uint8_t type;
+    uint8_t speed_limit;
 };
 #pragma pack(pop)
 
@@ -52,7 +53,7 @@ char* g_road_names = nullptr;
 size_t g_road_names_size = 0;
 
 uint64_t g_time_scale_fixed[4]; // Heuristic scales (10ms units per mm)
-uint64_t g_edge_time_multipliers[4][16]; // Speed-to-time conversion factors
+uint64_t g_edge_time_multipliers[4][16]; // Speed-to-time conversion factors for WALK/BIKE/DRIVING(fallback)
 const double WALK_SPEED_M_S = 4.5 / 3.6;
 const double BICYCLE_SPEED_M_S = 16.0 / 3.6;
 const double DEG_TO_RAD = M_PI / 180.0;
@@ -124,9 +125,22 @@ inline uint32_t accurate_dist_mm(int32_t lat1_e7, int32_t lon1_e7, int32_t lat2_
     return (uint32_t)(R * 2.0 * atan2(sqrt(a), sqrt(1.0 - a)));
 }
 
-inline uint32_t get_edge_time_10ms(uint32_t dist_mm, uint8_t road_type, int mode) {
-    uint64_t multiplier = g_edge_time_multipliers[mode & 0x3][road_type & 0xF];
+// Updated to use Edge structure directly for speed limit access with road-type fallback
+inline uint32_t get_edge_time_10ms(uint32_t dist_mm, uint8_t type, uint8_t limit, int mode) {
+    if (mode == DRIVING && limit > 0) {
+        // Use the explicit speed limit for driving mode if available
+        double speed_m_s = (double)limit / 3.6;
+        return (uint32_t)((double)dist_mm / (speed_m_s * 10.0));
+    }
+
+    // Fallback: If not driving, or if speed_limit is 0, use the road type based multipliers
+    uint64_t multiplier = g_edge_time_multipliers[mode & 0x3][type & 0xF];
     return (uint32_t)(((uint64_t)dist_mm * multiplier) >> 32);
+}
+
+// Overload for convenience with Edge struct
+inline uint32_t get_edge_time_10ms_struct(uint32_t dist_mm, const Edge& edge, int mode) {
+    return get_edge_time_10ms(dist_mm, edge.type, edge.speed_limit, mode);
 }
 
 inline uint32_t heuristic_time_10ms(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2, int mode) {
@@ -177,6 +191,7 @@ struct SnappedEdge {
     int32_t proj_lat, proj_lon;
     uint32_t distA_mm, distB_mm;
     uint8_t type;
+    uint8_t speed_limit;
     uint32_t name_offset;
 };
 
@@ -194,13 +209,13 @@ Projection get_projection(int32_t px, int32_t py, int32_t x1, int32_t y1, int32_
     double t = (mag_sq == 0) ? 0 : ((double)(px - x1) * dx + (double)(py - y1) * dy) / mag_sq;
     t = std::max(0.0, std::min(1.0, t));
     int32_t proj_lat = (int32_t)(x1 + t * dx), proj_lon = (int32_t)(y1 + t * dy);
-    return {proj_lat, proj_lon, fast_dist_mm(px, py, proj_lat, proj_lon)};
+    return {proj_lat, lon_e7 : proj_lon, dist_mm : fast_dist_mm(px, py, proj_lat, proj_lon)};
 }
 
 SnappedEdge find_nearest_edge(double lat, double lon, int mode) {
     uint64_t target_spatial = latlng_to_spatial(lat, lon);
     int32_t pLat = lat * 1e7, pLon = lon * 1e7;
-    SnappedEdge best = {0xFFFFFFFF, 0xFFFFFFFF, pLat, pLon, 0, 0, 0, 0xFFFFFFFF};
+    SnappedEdge best = {0xFFFFFFFF, 0xFFFFFFFF, pLat, pLon, 0, 0, 0, 0, 0xFFFFFFFF};
     uint32_t minSnapDist = 0xFFFFFFFF;
 
     int target_zone = (int)((target_spatial >> 58) & 0x3F);
@@ -237,7 +252,9 @@ SnappedEdge find_nearest_edge(double lat, double lon, int mode) {
                     best.nodeA = u_global; best.nodeB = e.target; best.proj_lat = p.lat_e7; best.proj_lon = p.lon_e7;
                     best.distA_mm = fast_dist_mm(p.lat_e7, p.lon_e7, node_u.lat_e7, node_u.lon_e7);
                     best.distB_mm = fast_dist_mm(p.lat_e7, p.lon_e7, node_v.lat_e7, node_v.lon_e7);
-                    best.type = e.type; best.name_offset = e.name_offset;
+                    best.type = e.type;
+                    best.speed_limit = e.speed_limit;
+                    best.name_offset = e.name_offset;
                 }
             }
         }
@@ -256,17 +273,21 @@ bool prepare_routing(double sLat, double sLon, double eLat, double eLon, int mod
 
     if (ctx.start.nodeA == 0xFFFFFFFF || ctx.end.nodeA == 0xFFFFFFFF) return false;
 
-    auto push = [&](uint32_t node, uint32_t g) {
+    auto push = [&](uint32_t node, uint32_t travel_dist_mm) {
+        // Calculate g (cost from start) using snapped edge speed limit or type fallback
+        uint32_t g = get_edge_time_10ms(travel_dist_mm, ctx.start.type, ctx.start.speed_limit, mode);
+
         auto& entry = g_scratchpad[node];
         entry.g_fwd = g;
+
         const auto& n_data = get_node(node);
         uint32_t h = heuristic_time_10ms(n_data.lat_e7, n_data.lon_e7, ctx.end.proj_lat, ctx.end.proj_lon, mode);
         g_heap.push(g + h, node);
     };
 
     // Inject start points (A and B of the snapped edge)
-    push(ctx.start.nodeA, get_edge_time_10ms(ctx.start.distA_mm, ctx.start.type, mode));
-    push(ctx.start.nodeB, get_edge_time_10ms(ctx.start.distB_mm, ctx.start.type, mode));
+    push(ctx.start.nodeA, ctx.start.distA_mm);
+    push(ctx.start.nodeB, ctx.start.distB_mm);
 
     return true;
 }
@@ -276,7 +297,6 @@ void perform_search_loop(int mode, RoutingContext& ctx) {
         ctx.iterations++;
         uint32_t u = g_heap.pop();
 
-        // Target reached check (is it node A or B of the destination edge?)
         if (u == ctx.end.nodeA || u == ctx.end.nodeB) {
             ctx.target_node = u;
             break;
@@ -293,7 +313,8 @@ void perform_search_loop(int mode, RoutingContext& ctx) {
             Edge& edge = g_edge_zones[zone_u][i];
             if (!is_mode_allowed(edge.type, mode)) continue;
 
-            uint32_t travel = get_edge_time_10ms(edge.dist_mm, edge.type, mode);
+            // Updated cost calculation using the specific edge speed limit or fallback
+            uint32_t travel = get_edge_time_10ms_struct(edge.dist_mm, edge, mode);
             uint32_t v = edge.target;
 
             uint32_t new_g = u_g + travel;
@@ -341,13 +362,15 @@ jobjectArray reconstruct_path(JNIEnv* env, int mode, const RoutingContext& ctx) 
         const auto& node_v = get_node(v);
 
         uint32_t current_name_off = 0xFFFFFFFF;
-        uint8_t edge_type = 7; // Residential default
+        uint8_t edge_type = 7;
+        uint8_t edge_limit = 0;
         uint32_t edge_dist_mm = 0;
 
         uint32_t s = node_u.edge_ptr, e = g_node_zones[z_u][u - g_zone_offsets[z_u] + 1].edge_ptr;
         for (uint32_t k = s; k < e; ++k) {
             if (g_edge_zones[z_u][k].target == v) {
                 edge_type = g_edge_zones[z_u][k].type;
+                edge_limit = g_edge_zones[z_u][k].speed_limit;
                 current_name_off = g_edge_zones[z_u][k].name_offset;
                 edge_dist_mm = g_edge_zones[z_u][k].dist_mm;
                 break;
@@ -355,7 +378,8 @@ jobjectArray reconstruct_path(JNIEnv* env, int mode, const RoutingContext& ctx) 
         }
 
         if (edge_dist_mm == 0) edge_dist_mm = accurate_dist_mm(node_u.lat_e7, node_u.lon_e7, node_v.lat_e7, node_v.lon_e7);
-        uint32_t edge_time_10ms = get_edge_time_10ms(edge_dist_mm, edge_type, mode);
+
+        uint32_t edge_time_10ms = get_edge_time_10ms(edge_dist_mm, edge_type, edge_limit, mode);
         double current_bearing = get_bearing(node_u.lat_e7, node_u.lon_e7, node_v.lat_e7, node_v.lon_e7);
 
         if (steps.empty() || current_name_off != steps.back().name_off) {
@@ -453,5 +477,6 @@ Java_com_vayunmathur_maps_util_OfflineRouter_findRouteNative(JNIEnv* env, jobjec
     RoutingContext ctx; if (!prepare_routing(sLat, sLon, eLat, eLon, mode, ctx)) return nullptr;
     perform_search_loop(mode, ctx);
     if (ctx.target_node == 0xFFFFFFFF) return nullptr;
+    LOGD("Route found. Iterations: %d", ctx.iterations);
     return reconstruct_path(env, mode, ctx);
 }
