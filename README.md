@@ -14,6 +14,24 @@ All APK files made by me will match this SHA-256 certificate:
 ### Acknowledgement of Bugs
 The v2.x.x versions of these apps are all to be considered beta versions. Lots of features/apps being done in a short period of time will inevitably result in some bugs here and there. All bug reports are appreciated, and any PRs to add fixes or new features (as long as not bloaty) are very appreciated. Version numbering will change to v3.x.x when all the apps are stable.
 
+# Download links:
+You can also use obtainium or other similar apps using the apks in the tags.
+
+| App Name | Download |
+| :--- | :--- |
+| **Calendar** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.calendar) |
+| **Contacts** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.contacts) |
+| **Find Family** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.findfamily) |
+| **Chess** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.chess) |
+| **Unblock Jam** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.unblockjam) |
+| **Word Maker** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.wordmaker) |
+| **Music** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.music) |
+| **Notes** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.notes) |
+| **Open Assistant** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.openassistant) |
+| **PDF Reader** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.pdf) |
+| **Photos** | [<img src="https://f-droid.org/badge/get-it-on.png" height="70">](https://f-droid.org/packages/com.vayunmathur.photos) |
+
+
 # App Feature Descriptions
 Just for the "interesting" apps
 
