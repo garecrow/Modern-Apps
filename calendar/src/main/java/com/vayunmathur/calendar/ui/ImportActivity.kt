@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.glance.LocalContext
 import com.vayunmathur.calendar.ui.dateRangeString
 import com.vayunmathur.calendar.R
 import com.vayunmathur.calendar.MainActivity
@@ -184,6 +185,7 @@ fun ImportScreen(events: List<Event>, calendars: List<Calendar>, onImportClick: 
 
 @Composable
 fun EventCard(event: Event) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -195,7 +197,7 @@ fun EventCard(event: Event) {
         }, supportingContent = {
             Column {
                 // Format date range using the shared helper
-                Text(dateRangeString(event.startDateTimeDisplay.date, event.endDateTimeDisplay.date, event.startDateTimeDisplay.time, event.endDateTimeDisplay.time, event.allDay))
+                Text(dateRangeString(context, event.startDateTimeDisplay.date, event.endDateTimeDisplay.date, event.startDateTimeDisplay.time, event.endDateTimeDisplay.time, event.allDay))
                 // RRULE text
                 event.rrule?.let { Text(it.toString()) }
 
