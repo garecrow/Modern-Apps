@@ -77,14 +77,14 @@ class CalendarGlanceWidget : GlanceAppWidget() {
 
         provideContent {
             DynamicThemeGlance(context) {
-                Content(positionedEvents)
+                Content(context, positionedEvents)
             }
         }
     }
 }
 @SuppressLint("RestrictedApi")
 @Composable
-fun Content(positionedEvents: Map<LocalDate, List<Instance>>) {
+fun Content(context: Context, positionedEvents: Map<LocalDate, List<Instance>>) {
     val dateFormatS = LocalDate.Format {
         dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
         chars(", ")
@@ -121,6 +121,7 @@ fun Content(positionedEvents: Map<LocalDate, List<Instance>>) {
                                 )
                                 Text(
                                     dateRangeString(
+                                        context,
                                         instance.startDateTime.date,
                                         instance.endDateTime.date,
                                         instance.startDateTime.time,
