@@ -12,12 +12,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -98,6 +99,7 @@ import com.vayunmathur.library.ui.IconRotateRight
 import com.vayunmathur.library.ui.IconSave
 import com.vayunmathur.library.ui.IconSettings
 import com.vayunmathur.library.ui.IconUndo
+import com.vayunmathur.library.ui.IconVisible
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.NavBackStack
 import com.vayunmathur.photos.R
@@ -129,7 +131,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
     val currentDrawingPoints = remember { mutableStateListOf<Offset>() }
     val drawings = remember { mutableStateListOf<Drawing>() }
     
-    var activeTool by remember { mutableStateOf(DrawingTool.Pen) }
+    var activeTool by remember { mutableStateOf(DrawingTool.Pointer) }
     
     var penColor by remember { mutableStateOf(Color.Red) }
     var penWidth by remember { mutableFloatStateOf(10f) }
@@ -139,6 +141,15 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
     var highlighterOpacity by remember { mutableFloatStateOf(0.5f) }
     
     var eraserWidth by remember { mutableFloatStateOf(30f) }
+
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+        if (activeTool == DrawingTool.Pointer) {
+            scale *= zoomChange
+            offset += offsetChange
+        }
+    }
 
     val texts = remember { mutableStateListOf<TextElement>() }
     var selectedTextId by remember { mutableStateOf<String?>(null) }
@@ -152,6 +163,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
         DrawingTool.Highlighter -> highlighterColor
         DrawingTool.Eraser -> Color.Transparent
         DrawingTool.Text -> penColor
+        DrawingTool.Pointer -> Color.Transparent
     }
     
     val currentStrokeWidth = when(activeTool) {
@@ -159,6 +171,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
         DrawingTool.Highlighter -> highlighterWidth
         DrawingTool.Eraser -> eraserWidth
         DrawingTool.Text -> 0f
+        DrawingTool.Pointer -> 0f
     }
     
     val currentStrokeOpacity = if (activeTool == DrawingTool.Highlighter) highlighterOpacity else 1f
@@ -182,6 +195,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                 penColor = Color(result.color)
                 textFontSize = result.thickness
             }
+            DrawingTool.Pointer -> {}
         }
     }
 
@@ -406,7 +420,14 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                     Box(
                         modifier = Modifier
                             .size(viewportWidthDp, viewportHeightDp)
-                            .graphicsLayer { clip = false }
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offset.x
+                                translationY = offset.y
+                                clip = false
+                            }
+                            .transformable(state = transformState)
                             .pointerInput(activeTool) {
                                 if (activeTool == DrawingTool.Text) {
                                     detectTapGestures { offset ->
@@ -438,7 +459,7 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                             )
                         }
 
-                        if (isDrawing && activeTool != DrawingTool.Text) {
+                        if (isDrawing && (activeTool == DrawingTool.Pen || activeTool == DrawingTool.Highlighter || activeTool == DrawingTool.Eraser)) {
                             Canvas(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -540,11 +561,13 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                                             .pointerInput(Unit) {
                                                 detectTapGestures(
                                                     onTap = {
-                                                        if (selectedTextId == textElement.id) {
-                                                            pushState()
-                                                            textToEdit = texts.find { it.id == textElement.id }
-                                                        } else {
-                                                            selectedTextId = textElement.id
+                                                        if (activeTool == DrawingTool.Text) {
+                                                            if (selectedTextId == textElement.id) {
+                                                                pushState()
+                                                                textToEdit = texts.find { it.id == textElement.id }
+                                                            } else {
+                                                                selectedTextId = textElement.id
+                                                            }
                                                         }
                                                     }
                                                 )
@@ -552,18 +575,22 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                                             .pointerInput(Unit) {
                                                 detectDragGestures(
                                                     onDragStart = {
-                                                        pushState()
-                                                        selectedTextId = textElement.id
+                                                        if (activeTool == DrawingTool.Text) {
+                                                            pushState()
+                                                            selectedTextId = textElement.id
+                                                        }
                                                     },
                                                     onDrag = { change, dragAmount ->
-                                                        change.consume()
-                                                        val idx = texts.indexOfFirst { it.id == textElement.id }
-                                                        if (idx != -1) {
-                                                            val current = texts[idx]
-                                                            texts[idx] = current.copy(
-                                                                x = current.x + dragAmount.x / currentViewportWidth,
-                                                                y = current.y + dragAmount.y / currentViewportHeight
-                                                            )
+                                                        if (activeTool == DrawingTool.Text) {
+                                                            change.consume()
+                                                            val idx = texts.indexOfFirst { it.id == textElement.id }
+                                                            if (idx != -1) {
+                                                                val current = texts[idx]
+                                                                texts[idx] = current.copy(
+                                                                    x = current.x + dragAmount.x / currentViewportWidth,
+                                                                    y = current.y + dragAmount.y / currentViewportHeight
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                 )
@@ -587,15 +614,21 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                                                     .border(1.dp, Color.Black, CircleShape)
                                                     .pointerInput(Unit) {
                                                         detectDragGestures(
-                                                            onDragStart = { pushState() },
+                                                            onDragStart = {
+                                                                if (activeTool == DrawingTool.Text) {
+                                                                    pushState()
+                                                                }
+                                                            },
                                                             onDrag = { change, dragAmount ->
-                                                                change.consume()
-                                                                val idx = texts.indexOfFirst { it.id == textElement.id }
-                                                                if (idx != -1) {
-                                                                    val current = texts[idx]
-                                                                    texts[idx] = current.copy(
-                                                                        rotation = current.rotation + dragAmount.x
-                                                                    )
+                                                                if (activeTool == DrawingTool.Text) {
+                                                                    change.consume()
+                                                                    val idx = texts.indexOfFirst { it.id == textElement.id }
+                                                                    if (idx != -1) {
+                                                                        val current = texts[idx]
+                                                                        texts[idx] = current.copy(
+                                                                            rotation = current.rotation + dragAmount.x
+                                                                        )
+                                                                    }
                                                                 }
                                                             }
                                                         )
@@ -625,6 +658,11 @@ fun EditPhotoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, 
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(onClick = {
+                        activeTool = DrawingTool.Pointer
+                    }) {
+                        IconVisible(tint = if (activeTool == DrawingTool.Pointer) Color.Yellow else Color.White)
+                    }
                     IconButton(onClick = {
                         if (activeTool == DrawingTool.Pen) {
                             backStack.add(Route.DrawingSettings(activeTool, penColor.toArgb(), penWidth, 1f))

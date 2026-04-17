@@ -50,7 +50,7 @@ fun DrawingSettingsPage(
     initialThickness: Float,
     initialOpacity: Float
 ) {
-    var tool by remember { mutableStateOf(initialTool) }
+    val tool = initialTool
     var color by remember { mutableIntStateOf(initialColor) }
     var thickness by remember { mutableFloatStateOf(initialThickness) }
     var opacity by remember { mutableFloatStateOf(initialOpacity) }
@@ -106,7 +106,7 @@ fun DrawingSettingsPage(
                 )
             }
 
-            if (tool != DrawingTool.Eraser) {
+            if (tool != DrawingTool.Eraser && tool != DrawingTool.Pointer) {
                 Text("Color", color = Color.White)
                 val colors = listOf(
                     Color.Red, Color.Green, Color.Blue, Color.Yellow,
@@ -134,23 +134,6 @@ fun DrawingSettingsPage(
                                 .clickable { color = c.toArgb() }
                         )
                     }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly
-            ) {
-                IconButton(onClick = { tool = DrawingTool.Pen }) {
-                    IconDraw(tint = if (tool == DrawingTool.Pen) Color.Yellow else Color.White)
-                }
-                IconButton(onClick = { tool = DrawingTool.Highlighter }) {
-                    IconBrush(tint = if (tool == DrawingTool.Highlighter) Color.Yellow else Color.White)
-                }
-                IconButton(onClick = { tool = DrawingTool.Eraser }) {
-                    IconEraser(tint = if (tool == DrawingTool.Eraser) Color.Yellow else Color.White)
                 }
             }
 

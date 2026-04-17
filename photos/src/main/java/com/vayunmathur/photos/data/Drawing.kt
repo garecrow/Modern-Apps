@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class DrawingTool { Pen, Highlighter, Eraser, Text }
+enum class DrawingTool { Pointer, Pen, Highlighter, Eraser, Text }
 
 @Serializable
 data class Drawing(
