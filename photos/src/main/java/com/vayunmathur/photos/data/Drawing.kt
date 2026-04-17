@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class DrawingTool { Pen, Highlighter, Eraser }
+enum class DrawingTool { Pen, Highlighter, Eraser, Text }
 
 @Serializable
 data class Drawing(
@@ -14,6 +14,17 @@ data class Drawing(
     val color: Int,
     val strokeWidth: Float,
     val opacity: Float
+)
+
+@Serializable
+data class TextElement(
+    val id: String,
+    val text: String,
+    val x: Float,
+    val y: Float,
+    val rotation: Float,
+    val color: Int,
+    val fontSize: Float
 )
 
 @Serializable
