@@ -1,20 +1,14 @@
 package com.vayunmathur.pdf
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
-import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -29,16 +23,12 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -88,8 +78,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.center
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toOffset
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -101,11 +91,10 @@ import androidx.pdf.PdfRect
 import androidx.pdf.SandboxedPdfLoader
 import androidx.pdf.compose.PdfViewer
 import androidx.pdf.compose.PdfViewerState
-import androidx.pdf.selection.model.ImageSelection
 import androidx.pdf.view.Highlight
 import coil.compose.AsyncImage
+import com.google.common.util.concurrent.ListenableFuture
 import com.vayunmathur.library.ui.DynamicTheme
-import com.vayunmathur.pdf.util.PdfStateStore
 import com.vayunmathur.library.ui.IconAdd
 import com.vayunmathur.library.ui.IconCamera
 import com.vayunmathur.library.ui.IconNavigation
@@ -113,7 +102,7 @@ import com.vayunmathur.library.ui.IconSave
 import com.vayunmathur.library.ui.IconSearch
 import com.vayunmathur.library.ui.IconShare
 import com.vayunmathur.library.ui.IconUpload
-import com.google.common.util.concurrent.ListenableFuture
+import com.vayunmathur.pdf.util.PdfStateStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -123,7 +112,6 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
@@ -438,9 +426,27 @@ suspend fun savePdfToUri(context: Context, images: List<Uri>, targetUri: Uri): B
                 val bitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 }
-                val pageInfo = PdfDocument.PageInfo.Builder(bitmap.width, bitmap.height, index + 1).create()
+                
+                // Scale the image so its longest side matches the longest side of A4 (842 points).
+                // This ensures landscape images are correctly sized and prevents pages from being 
+                // so large that they hit the 0.5x minimum zoom limit.
+                val a4LongSide = 842f
+                val scale = if (bitmap.width > bitmap.height) {
+                    a4LongSide / bitmap.width
+                } else {
+                    a4LongSide / bitmap.height
+                }
+                
+                val targetWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+                val targetHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+
+                val pageInfo = PdfDocument.PageInfo.Builder(targetWidth, targetHeight, index + 1).create()
                 val page = pdfDocument.startPage(pageInfo)
-                page.canvas.drawBitmap(bitmap, 0f, 0f, null)
+
+                val matrix = Matrix()
+                matrix.postScale(scale, scale)
+                page.canvas.drawBitmap(bitmap, matrix, null)
+
                 pdfDocument.finishPage(page)
                 bitmap.recycle()
             } catch (e: Exception) {
