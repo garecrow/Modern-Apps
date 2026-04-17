@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -13,6 +16,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.General"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:documentLaunchMode="intoExisting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

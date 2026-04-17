@@ -162,3 +162,8 @@ fun IconBrush(tint: Color = LocalContentColor.current) {
 fun IconEraser(tint: Color = LocalContentColor.current) {
     Icon(painterResource(R.drawable.eraser_24px), "Eraser", tint = tint)
 }
+
+@Composable
+fun IconCamera(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.camera_alt_24px), "Camera", tint = tint)
+}

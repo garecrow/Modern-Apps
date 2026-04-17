@@ -1,24 +1,54 @@
 package com.vayunmathur.pdf
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -37,24 +67,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.toOffset
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.core.util.forEach
 import androidx.pdf.EditablePdfDocument
 import androidx.pdf.PdfPasswordException
@@ -65,13 +103,28 @@ import androidx.pdf.compose.PdfViewer
 import androidx.pdf.compose.PdfViewerState
 import androidx.pdf.selection.model.ImageSelection
 import androidx.pdf.view.Highlight
+import coil.compose.AsyncImage
 import com.vayunmathur.library.ui.DynamicTheme
 import com.vayunmathur.pdf.util.PdfStateStore
+import com.vayunmathur.library.ui.IconAdd
+import com.vayunmathur.library.ui.IconCamera
+import com.vayunmathur.library.ui.IconNavigation
 import com.vayunmathur.library.ui.IconSave
 import com.vayunmathur.library.ui.IconSearch
 import com.vayunmathur.library.ui.IconShare
+import com.vayunmathur.library.ui.IconUpload
+import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,16 +142,11 @@ class MainActivity : ComponentActivity() {
             var pdfDocument by remember { mutableStateOf<EditablePdfDocument?>(null) }
             var showPasswordDialog by remember { mutableStateOf(false) }
             var passwordError by remember { mutableStateOf<String?>(null) }
+            var isCapturing by rememberSaveable { mutableStateOf(false) }
 
             val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 uri?.let {
                     data = it
-                } ?: finish()
-            }
-
-            LaunchedEffect(Unit) {
-                if(data == null) {
-                    filePickerLauncher.launch(arrayOf("application/pdf"))
                 }
             }
 
@@ -117,9 +165,24 @@ class MainActivity : ComponentActivity() {
             }
 
             DynamicTheme {
-                pdfDocument?.let {
-                    PdfViewerScreen(it)
-                } ?: Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                if (data == null && !isCapturing) {
+                    InitialScreen(
+                        onOpenPdf = { filePickerLauncher.launch(arrayOf("application/pdf")) },
+                        onCapturePdf = { isCapturing = true }
+                    )
+                } else if (isCapturing) {
+                    CapturePdfScreen(
+                        onBack = { isCapturing = false },
+                        onPdfCreated = { uri ->
+                            data = uri
+                            isCapturing = false
+                        }
+                    )
+                } else {
+                    pdfDocument?.let {
+                        PdfViewerScreen(it)
+                    } ?: Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                }
 
                 if (showPasswordDialog) {
                     PasswordDialog(
@@ -132,6 +195,270 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun InitialScreen(onOpenPdf: () -> Unit, onCapturePdf: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Button(onClick = onOpenPdf, Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.open_pdf))
+            }
+            Button(onClick = onCapturePdf, Modifier.padding(16.dp)) {
+                Text(stringResource(R.string.capture_pdf))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CapturePdfScreen(onBack: () -> Unit, onPdfCreated: (Uri) -> Unit) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val images = remember { mutableStateListOf<Uri>() }
+    var selectedIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { images.add(it) }
+    }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        uri?.let { targetUri ->
+            coroutineScope.launch {
+                val success = savePdfToUri(context, images, targetUri)
+                if (success) {
+                    Toast.makeText(context, "PDF saved successfully", Toast.LENGTH_SHORT).show()
+                    onBack()
+                } else {
+                    Toast.makeText(context, "Failed to save PDF", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    BackHandler {
+        if (selectedIndex != null) {
+            selectedIndex = null
+        } else {
+            onBack()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.capture_pdf_title)) },
+                navigationIcon = {
+                    IconNavigation(onBack)
+                },
+                actions = {
+                    IconButton(onClick = { galleryLauncher.launch("image/*") }) {
+                        IconUpload()
+                    }
+                    if (images.isNotEmpty()) {
+                        IconButton(onClick = {
+                            createDocumentLauncher.launch("captured_${System.currentTimeMillis()}.pdf")
+                        }) {
+                            IconSave()
+                        }
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            BottomAppBar(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
+                modifier = Modifier.height(100.dp)
+            ) {
+                val lazyListState = rememberLazyListState()
+                val state = rememberReorderableLazyListState(lazyListState) { from, to ->
+                    if (to.index >= images.size || from.index >= images.size) return@rememberReorderableLazyListState
+                    images.apply {
+                        add(to.index, removeAt(from.index))
+                    }
+                }
+                LazyRow(
+                    state = lazyListState,
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    itemsIndexed(images, key = { _, uri -> uri.toString() }) { index, uri ->
+                        ReorderableItem(
+                            state = state,
+                            key = uri.toString()
+                        ) { isDragging ->
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(
+                                        width = 2.dp,
+                                        color = if (selectedIndex == index) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .longPressDraggableHandle()
+                                    .clickable { selectedIndex = index }
+                            )
+                        }
+                    }
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { selectedIndex = null },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            IconAdd()
+                        }
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            if (selectedIndex != null) {
+                AsyncImage(
+                    model = images[selectedIndex!!],
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                if (hasCameraPermission) {
+                    CameraPreview(
+                        onImageCaptured = { uri ->
+                            images.add(uri)
+                        }
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Button(onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                            Text(stringResource(R.string.request_camera_permission))
+                        }
+                        Button(onClick = { galleryLauncher.launch("image/*") }, Modifier.padding(top = 8.dp)) {
+                            Text(stringResource(R.string.upload_image))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CameraPreview(onImageCaptured: (Uri) -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraProviderFuture: ListenableFuture<ProcessCameraProvider> = remember { ProcessCameraProvider.getInstance(context) }
+    val previewView = remember { PreviewView(context) }
+    val imageCapture = remember { ImageCapture.Builder().build() }
+    val executor = remember { Executors.newSingleThreadExecutor() }
+
+    AndroidView(
+        factory = { previewView },
+        modifier = Modifier.fillMaxSize()
+    ) { view ->
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build().also {
+                it.surfaceProvider = view.surfaceProvider
+            }
+
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    imageCapture
+                )
+            } catch (e: Exception) {
+                Log.e("CameraPreview", "Use case binding failed", e)
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
+
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        FloatingActionButton(
+            onClick = {
+                val file = File(context.cacheDir, "${UUID.randomUUID()}.jpg")
+                imageCapture.targetRotation = previewView.display.rotation
+                val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
+                imageCapture.takePicture(
+                    outputOptions,
+                    executor,
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                            onImageCaptured(Uri.fromFile(file))
+                        }
+
+                        override fun onError(exception: ImageCaptureException) {
+                            Log.e("CameraPreview", "Image capture failed", exception)
+                        }
+                    }
+                )
+            },
+            modifier = Modifier.padding(bottom = 32.dp)
+        ) {
+            IconCamera()
+        }
+    }
+}
+
+suspend fun savePdfToUri(context: Context, images: List<Uri>, targetUri: Uri): Boolean = withContext(Dispatchers.IO) {
+    val pdfDocument = PdfDocument()
+    try {
+        images.forEachIndexed { index, uri ->
+            try {
+                val source = ImageDecoder.createSource(context.contentResolver, uri)
+                val bitmap = ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+                val pageInfo = PdfDocument.PageInfo.Builder(bitmap.width, bitmap.height, index + 1).create()
+                val page = pdfDocument.startPage(pageInfo)
+                page.canvas.drawBitmap(bitmap, 0f, 0f, null)
+                pdfDocument.finishPage(page)
+                bitmap.recycle()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error processing image $uri", e)
+            }
+        }
+
+        context.contentResolver.openFileDescriptor(targetUri, "w")?.use { pfd ->
+            FileOutputStream(pfd.fileDescriptor).use { fos ->
+                pdfDocument.writeTo(fos)
+            }
+        }
+        true
+    } catch (e: Exception) {
+        Log.e("MainActivity", "Error saving PDF to URI", e)
+        false
+    } finally {
+        pdfDocument.close()
     }
 }
 

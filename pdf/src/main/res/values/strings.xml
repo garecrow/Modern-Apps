@@ -8,4 +8,9 @@
     <string name="password_label">Password</string>
     <string name="ok">OK</string>
     <string name="incorrect_password">Incorrect password. Please try again.</string>
+    <string name="open_pdf">Open PDF</string>
+    <string name="capture_pdf">Capture PDF</string>
+    <string name="capture_pdf_title">Capture PDF</string>
+    <string name="request_camera_permission">Request Camera Permission</string>
+    <string name="upload_image">Upload Image</string>
 </resources>
