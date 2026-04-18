@@ -91,7 +91,8 @@ val PERMISSIONS = CLASSES.map { HealthPermission.getReadPermission(it) }.toSet()
     HealthPermissions.READ_MEDICAL_DATA_SOCIAL_HISTORY,
     HealthPermissions.READ_MEDICAL_DATA_VACCINES,
     HealthPermissions.READ_MEDICAL_DATA_VISITS,
-    HealthPermissions.READ_MEDICAL_DATA_VITAL_SIGNS
+    HealthPermissions.READ_MEDICAL_DATA_VITAL_SIGNS,
+    HealthPermissions.WRITE_MEDICAL_DATA
 ) } else {setOf()}
 
 

@@ -3,4 +3,5 @@
     <string name="recording">Recording...</string>
     <string name="message_placeholder">Message...</string>
     <string name="voice_message">Voice Message</string>
+    <string name="perm_desc_inference">Allows other apps to access the on-device AI inference service for extracting structured data.</string>
 </resources>

@@ -19,7 +19,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <permission
+        android:name="com.vayunmathur.openassistant.permission.ACCESS_INFERENCE"
+        android:label="Access Inference Service"
+        android:description="@string/perm_desc_inference"
+        android:protectionLevel="signature" />
 
     <queries>
         <intent>
@@ -66,7 +74,14 @@
             android:name="com.vayunmathur.library.services.DownloadService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
-        <service android:name=".util.InferenceService" android:exported="false" />
+        <service
+            android:name=".util.InferenceService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse"
+            android:permission="com.vayunmathur.openassistant.permission.ACCESS_INFERENCE">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="AI Inference for secure document extraction and assistant tasks" />
+        </service>
     </application>
 
 </manifest>
