@@ -40,6 +40,7 @@ import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MindfulnessSessionRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
@@ -57,6 +58,7 @@ import com.vayunmathur.health.ui.MainPage
 import com.vayunmathur.health.ui.ImmunizationsPage
 import com.vayunmathur.health.ui.LabResultsPage
 import com.vayunmathur.health.ui.PatientsPage
+import com.vayunmathur.health.ui.NutritionDetailsPage
 import com.vayunmathur.health.util.HealthAPI
 import com.vayunmathur.health.util.HealthSyncWorker
 import com.vayunmathur.library.ui.DynamicTheme
@@ -78,7 +80,7 @@ val CLASSES = setOf(
     WeightRecord::class, HeightRecord::class, BodyFatRecord::class, LeanBodyMassRecord::class, BoneMassRecord::class, BodyWaterMassRecord::class,
 
     // Lifestyle & Nutrition
-    MindfulnessSessionRecord::class, HydrationRecord::class, // TODO: readd these: NutritionRecord::class, SleepSessionRecord::class
+    MindfulnessSessionRecord::class, HydrationRecord::class, NutritionRecord::class, // TODO: readd these: SleepSessionRecord::class
 )
 
 val PERMISSIONS = CLASSES.map { HealthPermission.getReadPermission(it) }.toSet() + if (SdkExtensions.getExtensionVersion(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) >= 16) {setOf(
@@ -155,6 +157,9 @@ sealed interface Route: NavKey {
     data object LabResults: Route
 
     @Serializable
+    data object NutritionDetails: Route
+
+    @Serializable
     data class BarChartDetails(val healthMetric: HealthMetricConfig): Route
 }
 
@@ -173,6 +178,9 @@ fun Navigation() {
         }
         entry<Route.LabResults> {
             LabResultsPage(backStack)
+        }
+        entry<Route.NutritionDetails> {
+            NutritionDetailsPage(backStack)
         }
         entry<Route.BarChartDetails> {
             BarChartDetails(backStack, it.healthMetric)

@@ -98,6 +98,7 @@ fun MainPage(backStack: NavBackStack<Route>) {
     val floorsClimbedToday by HealthAPI.sumInRange(RecordType.Floors, dayStart, dayEnd).collectAsState(0.0)
     val elevationGainedToday by HealthAPI.sumInRange(RecordType.Elevation, dayStart, dayEnd).collectAsState(0.0)
     val hydrationToday by HealthAPI.sumInRange(RecordType.Hydration, dayStart, dayEnd).collectAsState(0.0) // Liters
+    val nutritionCaloriesToday by HealthAPI.sumInRange(RecordType.Nutrition, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
 //    val caloriesConsumedToday by HealthAPI.sumInRange(RecordType.NutritionEnergy, dayStart, dayEnd).collectAsState(0.0)
 //    val proteinToday by HealthAPI.sumInRange(RecordType.Protein, dayStart, dayEnd).collectAsState(0.0) // Grams
 //    val carbsToday by HealthAPI.sumInRange(RecordType.Carbohydrates, dayStart, dayEnd).collectAsState(0.0)
@@ -200,10 +201,10 @@ fun MainPage(backStack: NavBackStack<Route>) {
             Text(stringResource(R.string.section_vitals_clinical), style = MaterialTheme.typography.labelLarge)
             VitalsDashboard(backStack, br, spo2, rhr, hrv, skinTemp, vo2Max, bloodGlucose, bloodPressure)
 
-            // 2. Nutrition Summary
             Text(stringResource(R.string.section_nutrition_today), style = MaterialTheme.typography.labelLarge)
             // TODO: add this back
             //NutritionSummaryCard(aggregates)
+            Nutrition(backStack, nutritionCaloriesToday)
             Hydration(backStack, hydrationToday)
 
             // 3. Body Composition
@@ -345,6 +346,15 @@ fun verticalSegmentedCardShape(index: Int, total: Int): Shape {
         0 -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
         total - 1 -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
         else -> RoundedCornerShape(4.dp)
+    }
+}
+
+@Composable
+fun Nutrition(backStack: NavBackStack<Route>, kcal: Long) {
+    GenericCard(stringResource(R.string.label_nutrition), null, "kcal", kcal.toString(), stringResource(R.string.label_today), onClick = {
+        backStack.add(Route.NutritionDetails)
+    }) {
+        ProgressBarGraphic(R.drawable.baseline_local_fire_department_24, kcal.toFloat(), 2000f, Color(0xFF4CAF50))
     }
 }
 

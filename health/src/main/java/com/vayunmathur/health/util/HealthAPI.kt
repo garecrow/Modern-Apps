@@ -49,6 +49,206 @@ object HealthAPI {
     }
 
     @Composable
+    fun sumProteinInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumProteinInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumCarbsInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumCarbsInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumFatInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumFatInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumFiberInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumFiberInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumSugarInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumSugarInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumSodiumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumSodiumInRange(recordType, startTime, endTime) }
+    }
+    
+    @Composable
+    fun sumBiotinInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumBiotinInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumCaffeineInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumCaffeineInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumCalciumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumCalciumInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumChlorideInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumChlorideInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumCholesterolInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumCholesterolInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumChromiumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumChromiumInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumCopperInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumCopperInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumFolateInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumFolateInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumFolicAcidInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumFolicAcidInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumIodineInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumIodineInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumIronInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumIronInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumMagnesiumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumMagnesiumInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumManganeseInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumManganeseInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumMolybdenumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumMolybdenumInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumMonounsaturatedFatInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumMonounsaturatedFatInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumNiacinInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumNiacinInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumPantothenicAcidInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumPantothenicAcidInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumPhosphorusInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumPhosphorusInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumPolyunsaturatedFatInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumPolyunsaturatedFatInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumPotassiumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumPotassiumInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumRiboflavinInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumRiboflavinInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumSaturatedFatInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumSaturatedFatInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumSeleniumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumSeleniumInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumThiaminInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumThiaminInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumTransFatInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumTransFatInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumUnsaturatedFatInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumUnsaturatedFatInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminAInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminAInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminB12InRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminB12InRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminB6InRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminB6InRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminCInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminCInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminDInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminDInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminEInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminEInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumVitaminKInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumVitaminKInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
+    fun sumZincInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
+        return remember { db.healthDao().sumZincInRange(recordType, startTime, endTime) }
+    }
+
+    @Composable
     fun maxInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double?> {
         return remember { db.healthDao().maxInRange(recordType, startTime, endTime) }
     }

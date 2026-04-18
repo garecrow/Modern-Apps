@@ -1,6 +1,7 @@
 package com.vayunmathur.health.data
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -20,6 +21,49 @@ enum class RecordType {
     Sleep, Mindfulness, Hydration, Nutrition
 }
 
+data class NutritionData(
+    val protein: Double = 0.0,
+    val carbohydrates: Double = 0.0,
+    val fat: Double = 0.0,
+    val fiber: Double = 0.0,
+    val sugar: Double = 0.0,
+    val sodium: Double = 0.0,
+    val biotin: Double = 0.0,
+    val caffeine: Double = 0.0,
+    val calcium: Double = 0.0,
+    val chloride: Double = 0.0,
+    val cholesterol: Double = 0.0,
+    val chromium: Double = 0.0,
+    val copper: Double = 0.0,
+    val folate: Double = 0.0,
+    val folicAcid: Double = 0.0,
+    val iodine: Double = 0.0,
+    val iron: Double = 0.0,
+    val magnesium: Double = 0.0,
+    val manganese: Double = 0.0,
+    val molybdenum: Double = 0.0,
+    val monounsaturatedFat: Double = 0.0,
+    val niacin: Double = 0.0,
+    val pantothenicAcid: Double = 0.0,
+    val phosphorus: Double = 0.0,
+    val polyunsaturatedFat: Double = 0.0,
+    val potassium: Double = 0.0,
+    val riboflavin: Double = 0.0,
+    val saturatedFat: Double = 0.0,
+    val selenium: Double = 0.0,
+    val thiamin: Double = 0.0,
+    val transFat: Double = 0.0,
+    val unsaturatedFat: Double = 0.0,
+    val vitaminA: Double = 0.0,
+    val vitaminB12: Double = 0.0,
+    val vitaminB6: Double = 0.0,
+    val vitaminC: Double = 0.0,
+    val vitaminD: Double = 0.0,
+    val vitaminE: Double = 0.0,
+    val vitaminK: Double = 0.0,
+    val zinc: Double = 0.0
+)
+
 @Entity
 data class Record(
     val id: String,
@@ -29,6 +73,7 @@ data class Record(
     val endTime: Instant,
     val value: Double,
     val secondaryValue: Double = 0.0,
+    @Embedded(prefix = "nutrition_") val nutritionData: NutritionData? = null,
     @PrimaryKey val primaryKey: String = "$id-$index",
 )
 
@@ -51,6 +96,127 @@ interface HealthDao {
 
     @Query("SELECT COALESCE(SUM(value), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
     fun sumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+    
+    @Query("SELECT COALESCE(SUM(nutrition_protein), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumProteinInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_carbohydrates), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumCarbsInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_fat), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumFatInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_fiber), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumFiberInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_sugar), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumSugarInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_sodium), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumSodiumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_biotin), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumBiotinInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_caffeine), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumCaffeineInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_calcium), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumCalciumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_chloride), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumChlorideInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_cholesterol), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumCholesterolInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_chromium), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumChromiumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_copper), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumCopperInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_folate), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumFolateInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_folicAcid), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumFolicAcidInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_iodine), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumIodineInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_iron), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumIronInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_magnesium), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumMagnesiumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_manganese), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumManganeseInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_molybdenum), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumMolybdenumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_monounsaturatedFat), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumMonounsaturatedFatInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_niacin), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumNiacinInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_pantothenicAcid), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumPantothenicAcidInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_phosphorus), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumPhosphorusInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_polyunsaturatedFat), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumPolyunsaturatedFatInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_potassium), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumPotassiumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_riboflavin), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumRiboflavinInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_saturatedFat), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumSaturatedFatInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_selenium), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumSeleniumInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_thiamin), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumThiaminInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_transFat), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumTransFatInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_unsaturatedFat), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumUnsaturatedFatInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminA), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminAInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminB12), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminB12InRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminB6), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminB6InRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminC), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminCInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminD), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminDInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminE), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminEInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_vitaminK), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumVitaminKInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(nutrition_zinc), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
+    fun sumZincInRange(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Flow<Double>
+
     @Query("SELECT COALESCE(SUM(value), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")
     suspend fun sumInRangeGet1(type: RecordType, startTime: kotlin.time.Instant, endTime: kotlin.time.Instant): Double
     @Query("SELECT COALESCE(SUM(secondaryValue), 0.0) FROM Record WHERE type = :type AND startTime >= :startTime AND endTime <= :endTime")

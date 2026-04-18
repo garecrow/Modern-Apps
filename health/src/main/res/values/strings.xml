@@ -80,6 +80,7 @@
     <string name="label_heart_rate">Heart rate</string>
     <string name="label_sleep">Sleep</string>
     <string name="label_hydration">Hydration</string>
+    <string name="label_nutrition">Nutrition</string>
 
     <!-- MainPage – VitalsDashboard labels -->
     <string name="label_blood_pressure">Blood Pressure</string>
