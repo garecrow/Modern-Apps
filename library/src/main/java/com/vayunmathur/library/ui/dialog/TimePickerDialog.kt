@@ -1,8 +1,8 @@
 package com.vayunmathur.library.ui.dialog
 
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberTimePickerState
@@ -25,7 +25,7 @@ fun <T: NavKey> TimePickerDialogContent(backStack: NavBackStack<T>, resultKey: S
         onDismissRequest = { backStack.pop() },
         title = { Text("Select time") },
         confirmButton = {
-            Button(
+            TextButton(
                 onClick = {
                     scope.launch { registry.dispatchResult(resultKey, selectedTime) }
                     backStack.pop()
@@ -36,7 +36,7 @@ fun <T: NavKey> TimePickerDialogContent(backStack: NavBackStack<T>, resultKey: S
             }
         },
         dismissButton = {
-            Button(onClick = { backStack.pop() }) { Text("Cancel") }
+            TextButton(onClick = { backStack.pop() }) { Text("Cancel") }
         }
     ) {
         TimePicker(state)

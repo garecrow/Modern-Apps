@@ -1,11 +1,11 @@
 package com.vayunmathur.library.ui.dialog
 
-import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,7 +42,7 @@ fun <T: NavKey> DatePickerDialog(backStack: NavBackStack<T>, resultKey: String, 
     DatePickerDialog(
         onDismissRequest = { backStack.pop() },
         confirmButton = {
-            Button(onClick = {
+            TextButton(onClick = {
                 val selectedMs = state.selectedDateMillis!!
                 val result = Instant.fromEpochMilliseconds(selectedMs)
                     .toLocalDateTime(TimeZone.UTC).date
@@ -53,7 +53,7 @@ fun <T: NavKey> DatePickerDialog(backStack: NavBackStack<T>, resultKey: String, 
             }
         },
         dismissButton = {
-            Button(onClick = { backStack.pop() }) { Text("Cancel") }
+            TextButton(onClick = { backStack.pop() }) { Text("Cancel") }
         }
     ) {
         DatePicker(state)

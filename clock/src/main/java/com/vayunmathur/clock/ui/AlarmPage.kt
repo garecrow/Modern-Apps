@@ -1,15 +1,21 @@
 package com.vayunmathur.clock.ui
 
 import android.text.format.DateFormat
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -24,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -70,9 +77,27 @@ fun AlarmPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, newA
             IconAdd()
         }
     }) { paddingValues ->
-        LazyColumn(contentPadding = paddingValues) {
-            items(alarms) { alarm ->
-                AlarmCard(backStack, alarm, viewModel, alarmScheduler)
+        if (alarms.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Text(
+                    stringResource(R.string.no_alarms),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = paddingValues.calculateTopPadding() + 8.dp,
+                    bottom = paddingValues.calculateBottomPadding() + 80.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(alarms, key = { it.id }) { alarm ->
+                    AlarmCard(backStack, alarm, viewModel, alarmScheduler)
+                }
             }
         }
     }
@@ -94,29 +119,48 @@ fun AlarmCard(
         }
         viewModel.upsert(newAlarm)
     }
-    Card {
-        Column(Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                val format = if(DateFormat.is24HourFormat(context)) {
-                    LocalTime.Format {
-                        hour(Padding.ZERO)
-                        char(':')
-                        minute()
+    Card(
+        onClick = { backStack.add(Route.AlarmSetTimeDialog(alarm.id, alarm.time)) },
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = if (alarm.enabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    if (alarm.name.isNotEmpty()) {
+                        Text(
+                            alarm.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                } else {
-                    LocalTime.Format {
-                        amPmHour(Padding.NONE)
-                        char(':')
-                        minute()
-                        amPmMarker(" AM", " PM")
+                    val format = if(DateFormat.is24HourFormat(context)) {
+                        LocalTime.Format {
+                            hour(Padding.ZERO)
+                            char(':')
+                            minute()
+                        }
+                    } else {
+                        LocalTime.Format {
+                            amPmHour(Padding.NONE)
+                            char(':')
+                            minute()
+                            amPmMarker(" AM", " PM")
+                        }
                     }
+                    Text(
+                        alarm.time.format(format),
+                        style = MaterialTheme.typography.displayMedium,
+                        color = if (alarm.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text(
-                    alarm.time.format(format),
-                    Modifier.clickable{ backStack.add(Route.AlarmSetTimeDialog(alarm.id, alarm.time))},
-                    style = MaterialTheme.typography.displayMedium
-                )
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = alarm.enabled, onCheckedChange = {
                         val newAlarm = alarm.copy(enabled = it)
                         if(newAlarm.enabled) {
@@ -126,6 +170,7 @@ fun AlarmCard(
                         }
                         viewModel.upsertAsync(alarm.copy(enabled = it))
                     })
+                    Spacer(Modifier.width(8.dp))
                     IconButton({
                         alarmScheduler.cancel(context, alarm)
                         viewModel.delete(alarm)
@@ -134,12 +179,14 @@ fun AlarmCard(
                     }
                 }
             }
+            Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 "SMTWTFS".forEachIndexed { idx, day ->
+                    val isSelected = alarm.days and (1 shl idx) != 0
                     ToggleButton(
-                        checked = alarm.days and (1 shl idx) != 0,
+                        checked = isSelected,
                         onCheckedChange = {
-                            val newDays = if (alarm.days and (1 shl idx) != 0) alarm.days and (1 shl idx).inv() else alarm.days or (1 shl idx)
+                            val newDays = if (isSelected) alarm.days and (1 shl idx).inv() else alarm.days or (1 shl idx)
                             val newAlarm = alarm.copy(days = newDays)
                             if(newAlarm.enabled) {
                                 alarmScheduler.schedule(context, newAlarm)

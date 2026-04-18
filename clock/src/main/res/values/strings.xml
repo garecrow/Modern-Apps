@@ -7,6 +7,9 @@
     <string name="label_timer">Timer</string>
     <string name="label_stopwatch">Stopwatch</string>
 
+    <!-- AlarmPage -->
+    <string name="no_alarms">No alarms set</string>
+
     <!-- AlarmActivity -->
     <string name="button_stop">STOP</string>
     <string name="button_snooze">SNOOZE (5 MIN)</string>
