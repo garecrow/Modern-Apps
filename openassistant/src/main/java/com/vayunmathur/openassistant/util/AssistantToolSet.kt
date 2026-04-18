@@ -47,10 +47,10 @@ class IntentToolSet(
         private set
 
     @Tool(description = "Return the structured JSON result of an intent request and finish.")
-    fun return_intent_result(jsonResult: String): String {
-        Log.i("IntentToolSet", "return_intent_result called with data size: ${jsonResult.length}")
+    fun return_intent_result(json_result: String): String {
+        Log.i("IntentToolSet", "return_intent_result called with data size: ${json_result.length}")
         
-        var sanitized = jsonResult.trim()
+        var sanitized = json_result.trim()
             .removePrefix("```json")
             .removePrefix("```")
             .removeSuffix("```")
@@ -109,97 +109,149 @@ class IntentToolSet(
             return "Invalid JSON format: ${e.message}"
         }
 
-        val schema = try {
-            Json.parseToJsonElement(schemaString).jsonObject
+        val schemaElement = try {
+            Json.parseToJsonElement(schemaString)
         } catch (e: Exception) {
             Log.e("IntentToolSet", "Internal Error: Schema itself is invalid JSON", e)
             return null
         }
 
-        return performValidation(json, schema)
+        return performValidation(json, schemaElement)
     }
 
-    private fun performValidation(data: JsonElement, schema: JsonObject, path: String = ""): String? {
+    private fun performValidation(data: JsonElement, schema: JsonElement, path: String = ""): String? {
         val pathPrefix = if (path.isEmpty()) "" else "at $path: "
-        
-        // 1. Basic Type Check
-        val expectedType = schema["type"]?.jsonPrimitive?.content
-        if (expectedType == "object" && data !is JsonObject) {
-            val err = "${pathPrefix}Expected an object but got ${data::class.simpleName}"
-            Log.e("IntentToolSet", "Validation Error: $err")
-            return err
-        }
-        if (expectedType == "array" && data !is JsonArray) {
-            val err = "${pathPrefix}Expected an array but got ${data::class.simpleName}"
-            Log.e("IntentToolSet", "Validation Error: $err")
-            return err
-        }
 
-        // 2. Object Validation
-        if (data is JsonObject) {
-            val properties = schema["properties"] as? JsonObject
-            
-            // Unexpected Fields Check
-            data.keys.forEach { key ->
-                if (properties == null || !properties.containsKey(key)) {
-                    val fullPath = if (path.isEmpty()) key else "$path.$key"
-                    val err = "Unexpected field found: '$fullPath'. Please only use EXACT field names defined in the schema (be careful of leading/trailing spaces in keys!)."
+        if (schema is JsonObject) {
+            // Handle anyOf
+            val anyOf = schema["anyOf"] as? JsonArray
+            if (anyOf != null) {
+                val errors = mutableListOf<String>()
+                for (i in anyOf.indices) {
+                    val error = performValidation(data, anyOf[i], path)
+                    if (error == null) return null // Found a matching schema
+                    errors.add("Option $i: $error")
+                }
+                val err = "Data does not match any of the allowed schemas in anyOf. Details: ${errors.joinToString("; ")}"
+                Log.e("IntentToolSet", "Validation Error: $err")
+                return err
+            }
+
+            // Handle oneOf
+            val oneOf = schema["oneOf"] as? JsonArray
+            if (oneOf != null) {
+                val matchingIndices = mutableListOf<Int>()
+                val errors = mutableListOf<String>()
+                for (i in oneOf.indices) {
+                    val error = performValidation(data, oneOf[i], path)
+                    if (error == null) {
+                        matchingIndices.add(i)
+                    } else {
+                        errors.add("Option $i: $error")
+                    }
+                }
+                if (matchingIndices.size == 1) return null // Exactly one matches
+                val err = if (matchingIndices.isEmpty()) {
+                    "Data does not match any of the allowed options in 'oneOf'. Details: ${errors.joinToString("; ")}"
+                } else {
+                    "Data matches MULTIPLE options in 'oneOf': $matchingIndices. FHIR requires ONLY ONE of these fields (e.g., provide EITHER valueQuantity OR valueString, but not both)."
+                }
+                Log.e("IntentToolSet", "Validation Error: $err")
+                return err
+            }
+
+            // Handle not
+            val notSchema = schema["not"]
+            if (notSchema != null) {
+                val error = performValidation(data, notSchema, path)
+                if (error == null) {
+                    val err = "Data matched the 'not' schema at $path, which is forbidden."
                     Log.e("IntentToolSet", "Validation Error: $err")
                     return err
                 }
             }
 
-            // Required Fields Check
-            val required = schema["required"] as? JsonArray
-            required?.forEach { req ->
-                val fieldName = req.jsonPrimitive.content
-                if (!data.containsKey(fieldName)) {
-                    val fullPath = if (path.isEmpty()) fieldName else "$path.$fieldName"
-                    val err = "Missing required field: '$fullPath'"
-                    Log.e("IntentToolSet", "Validation Error: $err")
-                    return err
-                }
+            // 1. Basic Type Check
+            val expectedType = schema["type"]?.jsonPrimitive?.content
+            if (expectedType == "object" && data !is JsonObject) {
+                val err = "${pathPrefix}Expected an object but got ${data::class.simpleName}"
+                Log.e("IntentToolSet", "Validation Error: $err")
+                return err
+            }
+            if (expectedType == "array" && data !is JsonArray) {
+                val err = "${pathPrefix}Expected an array but got ${data::class.simpleName}"
+                Log.e("IntentToolSet", "Validation Error: $err")
+                return err
             }
 
-            // Recurse into properties
-            data.forEach { (key, value) ->
-                val propSchema = properties?.get(key)?.jsonObject
-                if (propSchema != null) {
-                    val fullPath = if (path.isEmpty()) key else "$path.$key"
-
-                    // Const check
-                    val constValue = propSchema["const"]?.jsonPrimitive?.content
-                    if (constValue != null && value.jsonPrimitive.content != constValue) {
-                        val err = "Field '$fullPath' must be '$constValue' but got '${value.jsonPrimitive.content}'"
+            // 2. Object Validation
+            if (data is JsonObject) {
+                val properties = schema["properties"] as? JsonObject
+                
+                // Unexpected Fields Check
+                data.keys.forEach { key ->
+                    if (properties == null || !properties.containsKey(key)) {
+                        val fullPath = if (path.isEmpty()) key else "$path.$key"
+                        val err = "Unexpected field found: '$fullPath'. Please only use EXACT field names defined in the schema (be careful of leading/trailing spaces in keys!)."
                         Log.e("IntentToolSet", "Validation Error: $err")
                         return err
                     }
+                }
 
-                    // Enum check
-                    val enumValues = propSchema["enum"] as? JsonArray
-                    if (enumValues != null) {
-                        val allowed = enumValues.map { it.jsonPrimitive.content }
-                        if (value.jsonPrimitive.content !in allowed) {
-                            val err = "Field '$fullPath' has invalid value '${value.jsonPrimitive.content}'. Allowed values: $allowed"
-                            Log.e("IntentToolSet", "Validation Error: $err")
-                            return err
-                        }
+                // Required Fields Check
+                val required = schema["required"] as? JsonArray
+                required?.forEach { req ->
+                    val fieldName = req.jsonPrimitive.content
+                    if (!data.containsKey(fieldName)) {
+                        val fullPath = if (path.isEmpty()) fieldName else "$path.$fieldName"
+                        val err = "Missing required field: '$fullPath'"
+                        Log.e("IntentToolSet", "Validation Error: $err")
+                        return err
                     }
-                    
-                    // RECURSE
-                    val nestedError = performValidation(value, propSchema, fullPath)
-                    if (nestedError != null) return nestedError
+                }
+
+                // Recurse into properties
+                data.forEach { (key, value) ->
+                    val propSchema = properties?.get(key)
+                    if (propSchema != null) {
+                        val fullPath = if (path.isEmpty()) key else "$path.$key"
+
+                        if (propSchema is JsonObject) {
+                            // Const check
+                            val constValue = propSchema["const"]?.jsonPrimitive?.content
+                            if (constValue != null && value.jsonPrimitive.content != constValue) {
+                                val err = "Field '$fullPath' must be '$constValue' but got '${value.jsonPrimitive.content}'"
+                                Log.e("IntentToolSet", "Validation Error: $err")
+                                return err
+                            }
+
+                            // Enum check
+                            val enumValues = propSchema["enum"] as? JsonArray
+                            if (enumValues != null) {
+                                val allowed = enumValues.map { it.jsonPrimitive.content }
+                                if (value.jsonPrimitive.content !in allowed) {
+                                    val err = "Field '$fullPath' has invalid value '${value.jsonPrimitive.content}'. Allowed values: $allowed"
+                                    Log.e("IntentToolSet", "Validation Error: $err")
+                                    return err
+                                }
+                            }
+                        }
+                        
+                        // RECURSE
+                        val nestedError = performValidation(value, propSchema, fullPath)
+                        if (nestedError != null) return nestedError
+                    }
                 }
             }
-        }
-        
-        // 3. Array Validation
-        if (data is JsonArray) {
-            val itemSchema = schema["items"]?.jsonObject
-            if (itemSchema != null) {
-                data.forEachIndexed { index, element ->
-                    val nestedError = performValidation(element, itemSchema, "$path[$index]")
-                    if (nestedError != null) return nestedError
+            
+            // 3. Array Validation
+            if (data is JsonArray) {
+                val itemSchema = schema["items"]
+                if (itemSchema != null) {
+                    data.forEachIndexed { index, element ->
+                        val nestedError = performValidation(element, itemSchema, "$path[$index]")
+                        if (nestedError != null) return nestedError
+                    }
                 }
             }
         }

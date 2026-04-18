@@ -61,6 +61,9 @@
     <!-- MainPage – mini-card labels -->
     <string name="label_active">Active</string>
     <string name="label_basal">Basal</string>
+    <string name="label_patients">Patients</string>
+    <string name="label_immunizations">Immunizations</string>
+    <string name="label_lab_results">Lab Results</string>
 
     <!-- MainPage – date labels used in GenericCard -->
     <string name="label_today">Today</string>

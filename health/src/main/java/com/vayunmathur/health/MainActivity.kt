@@ -54,7 +54,9 @@ import com.vayunmathur.health.data.HealthDatabase
 import com.vayunmathur.health.ui.BarChartDetails
 import com.vayunmathur.health.ui.HealthMetricConfig
 import com.vayunmathur.health.ui.MainPage
-import com.vayunmathur.health.ui.MedicalRecordsPage
+import com.vayunmathur.health.ui.ImmunizationsPage
+import com.vayunmathur.health.ui.LabResultsPage
+import com.vayunmathur.health.ui.PatientsPage
 import com.vayunmathur.health.util.HealthAPI
 import com.vayunmathur.health.util.HealthSyncWorker
 import com.vayunmathur.library.ui.DynamicTheme
@@ -144,7 +146,13 @@ sealed interface Route: NavKey {
     data object MainPage: Route
 
     @Serializable
-    data object MedicalRecords: Route
+    data object Patients: Route
+
+    @Serializable
+    data object Immunizations: Route
+
+    @Serializable
+    data object LabResults: Route
 
     @Serializable
     data class BarChartDetails(val healthMetric: HealthMetricConfig): Route
@@ -157,8 +165,14 @@ fun Navigation() {
         entry<Route.MainPage> {
             MainPage(backStack)
         }
-        entry<Route.MedicalRecords> {
-            MedicalRecordsPage(backStack)
+        entry<Route.Patients> {
+            PatientsPage(backStack)
+        }
+        entry<Route.Immunizations> {
+            ImmunizationsPage(backStack)
+        }
+        entry<Route.LabResults> {
+            LabResultsPage(backStack)
         }
         entry<Route.BarChartDetails> {
             BarChartDetails(backStack, it.healthMetric)

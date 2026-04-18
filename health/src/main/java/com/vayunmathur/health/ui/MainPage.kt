@@ -141,11 +141,21 @@ fun MainPage(backStack: NavBackStack<Route>) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(stringResource(R.string.section_medical_records), style = MaterialTheme.typography.labelLarge)
-            Card(Modifier.invisibleClickable{
-                backStack.add(Route.MedicalRecords)
-            }) {
-                Row(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(stringResource(R.string.section_medical_records))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) {
+                    MiniMetricCard(stringResource(R.string.label_patients), "", "", onClick = {
+                        backStack.add(Route.Patients)
+                    })
+                }
+                Box(Modifier.weight(1f)) {
+                    MiniMetricCard(stringResource(R.string.label_immunizations), "", "", onClick = {
+                        backStack.add(Route.Immunizations)
+                    })
+                }
+                Box(Modifier.weight(1f)) {
+                    MiniMetricCard(stringResource(R.string.label_lab_results), "", "", onClick = {
+                        backStack.add(Route.LabResults)
+                    })
                 }
             }
 
