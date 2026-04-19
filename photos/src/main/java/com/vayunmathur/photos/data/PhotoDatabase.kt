@@ -9,7 +9,7 @@ import com.vayunmathur.library.util.TrueDao
 @Dao
 interface PhotoDao: TrueDao<Photo>
 
-@Database(entities = [Photo::class], version = 3)
+@Database(entities = [Photo::class], version = 4)
 abstract class PhotoDatabase : RoomDatabase() {
     abstract fun photoDao(): PhotoDao
 }
@@ -20,4 +20,8 @@ val MIGRATION_1_2 = Migration(1, 2) {
 
 val MIGRATION_2_3 = Migration(2, 3) {
     it.execSQL("ALTER TABLE Photo ADD COLUMN dateModified INTEGER NOT NULL DEFAULT 0")
+}
+
+val MIGRATION_3_4 = Migration(3, 4) {
+    it.execSQL("ALTER TABLE Photo ADD COLUMN isTrashed INTEGER NOT NULL DEFAULT 0")
 }

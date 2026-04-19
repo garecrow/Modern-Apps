@@ -1,45 +1,46 @@
 package com.vayunmathur.photos
 
 import android.Manifest
-import androidx.annotation.StringRes
-import androidx.compose.ui.res.stringResource
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.StringRes
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.painterResource
-import com.vayunmathur.library.util.NavBackStack
-import com.vayunmathur.library.util.NavKey
+import androidx.compose.ui.res.stringResource
 import com.vayunmathur.library.ui.DynamicTheme
 import com.vayunmathur.library.ui.PermissionsChecker
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.MainNavigation
+import com.vayunmathur.library.util.NavBackStack
+import com.vayunmathur.library.util.NavKey
 import com.vayunmathur.library.util.buildDatabase
 import com.vayunmathur.library.util.rememberNavBackStack
-import com.vayunmathur.photos.data.Photo
-import com.vayunmathur.photos.data.PhotoDatabase
 import com.vayunmathur.photos.data.MIGRATION_1_2
 import com.vayunmathur.photos.data.MIGRATION_2_3
+import com.vayunmathur.photos.data.MIGRATION_3_4
+import com.vayunmathur.photos.data.Photo
+import com.vayunmathur.photos.data.PhotoDatabase
 import com.vayunmathur.photos.ui.GalleryPage
 import com.vayunmathur.photos.ui.MapPage
 import com.vayunmathur.photos.ui.PhotoPage
-import kotlinx.serialization.Serializable
+import com.vayunmathur.photos.ui.TrashPage
 import com.vayunmathur.photos.util.ImageLoader
 import com.vayunmathur.photos.util.SyncWorker
-import com.vayunmathur.library.util.DialogPage
+import kotlinx.serialization.Serializable
+import com.vayunmathur.library.R as LibraryR
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val db = buildDatabase<PhotoDatabase>(listOf(MIGRATION_1_2, MIGRATION_2_3))
+        val db = buildDatabase<PhotoDatabase>(listOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4))
         val viewModel = DatabaseViewModel(db, Photo::class to db.photoDao())
         ImageLoader.init(this)
         SyncWorker.runOnce(this)
@@ -80,6 +81,9 @@ sealed interface Route: NavKey {
 
     @Serializable
     data object Map: Route
+
+    @Serializable
+    data object Trash: Route
 }
 
 @Composable
@@ -97,12 +101,17 @@ fun Navigation(viewModel: DatabaseViewModel) {
         entry<Route.PhotoPage> {
             PhotoPage(viewModel, it.id, it.overridePhotosList)
         }
+
+        entry<Route.Trash> {
+            TrashPage(backStack, viewModel)
+        }
     }
 }
 
 private enum class MainRoute(val route: Route, @StringRes val titleRes: Int, val icon: Int) {
     Gallery(Route.Gallery, R.string.label_gallery, R.drawable.gallery_thumbnail_24px),
-    Map(Route.Map, R.string.label_map, R.drawable.map_24px)
+    Map(Route.Map, R.string.label_map, R.drawable.map_24px),
+    Trash(Route.Trash, R.string.label_trash, LibraryR.drawable.delete_24px)
 }
 
 @Composable

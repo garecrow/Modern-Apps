@@ -1,11 +1,19 @@
 package com.vayunmathur.photos.util
 import android.content.Context
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +31,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
+import com.vayunmathur.library.ui.IconCheck
 import com.vayunmathur.library.ui.invisibleClickable
 import com.vayunmathur.photos.data.Photo
 import com.vayunmathur.photos.R
@@ -51,14 +60,15 @@ object ImageLoader {
     }
 
     @Composable
-    fun PhotoItem(photo: Photo, modifier: Modifier, onClick: () -> Unit) {
+    fun PhotoItem(photo: Photo, modifier: Modifier, onClick: (() -> Unit)? = null) {
         val context = LocalContext.current
         val isVideo = photo.videoData != null
+
+        val modifier = if(onClick != null) modifier.invisibleClickable(onClick) else modifier
 
         Box(
             modifier = modifier
                 .clip(RoundedCornerShape(8.dp))
-                .invisibleClickable(onClick)
                 .background(Color.DarkGray),
             contentAlignment = Alignment.Center
         ) {
@@ -84,7 +94,7 @@ object ImageLoader {
                         .size(32.dp)
                         .background(
                             color = Color.Black.copy(alpha = 0.4f),
-                            shape = androidx.compose.foundation.shape.CircleShape
+                            shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -94,6 +104,55 @@ object ImageLoader {
                         tint = Color.White,
                         modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalFoundationApi::class)
+    @Composable
+    fun SelectablePhotoItem(
+        photo: Photo,
+        isSelected: Boolean,
+        isSelectionMode: Boolean,
+        onToggleSelection: () -> Unit,
+        onClick: () -> Unit
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onToggleSelection
+                )
+        ) {
+            PhotoItem(photo, Modifier.fillMaxSize(), onClick = null)
+
+            if (isSelectionMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    if (isSelected) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            IconCheck(tint = Color.White)
+                        }
+                    } else {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.3f),
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            // Empty circle
+                        }
+                    }
                 }
             }
         }

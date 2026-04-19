@@ -1,7 +1,10 @@
 package com.vayunmathur.photos.util
+
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.database.getLongOrNull
@@ -20,6 +23,7 @@ import com.vayunmathur.library.util.buildDatabase
 import com.vayunmathur.library.util.getAll
 import com.vayunmathur.photos.data.MIGRATION_1_2
 import com.vayunmathur.photos.data.MIGRATION_2_3
+import com.vayunmathur.photos.data.MIGRATION_3_4
 import com.vayunmathur.photos.data.Photo
 import com.vayunmathur.photos.data.PhotoDatabase
 import com.vayunmathur.photos.data.VideoData
@@ -32,7 +36,7 @@ import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): WorkResult = withContext(Dispatchers.IO) {
-        val database = applicationContext.buildDatabase<PhotoDatabase>(listOf(MIGRATION_1_2, MIGRATION_2_3))
+        val database = applicationContext.buildDatabase<PhotoDatabase>(listOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4))
         val dataStore = DataStoreUtils.getInstance(applicationContext)
         
         val triggeredUris = triggeredContentUris
@@ -92,7 +96,10 @@ suspend fun syncPhotos(context: Context, database: PhotoDatabase, uris: List<Uri
     val allMediaStoreIds = mutableSetOf<Long>()
     fun collectIds(baseUri: Uri) {
         try {
-            context.contentResolver.query(baseUri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)?.use { cursor ->
+            val bundle = Bundle().apply {
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+            }
+            context.contentResolver.query(baseUri, arrayOf(MediaStore.MediaColumns._ID), bundle, null)?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
                 while (cursor.moveToNext()) {
                     try {
@@ -110,13 +117,11 @@ suspend fun syncPhotos(context: Context, database: PhotoDatabase, uris: List<Uri
     collectIds(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
 
     // 2. Handle deletions
+    val localIds = photoDao.getAll<Photo>().map { it.id }.toSet()
     val toDelete = if (uris != null) {
-        // Triggered sync: only delete triggered items that no longer exist
         val triggeredIds = uris.mapNotNull { runCatching { ContentUris.parseId(it) }.getOrNull() }.toSet()
         triggeredIds - allMediaStoreIds
     } else {
-        // Full or incremental sync: delete everything local not in MediaStore
-        val localIds = photoDao.getAll<Photo>().map { it.id }.toSet()
         localIds - allMediaStoreIds
     }
 
@@ -138,22 +143,7 @@ suspend fun syncPhotos(context: Context, database: PhotoDatabase, uris: List<Uri
         else -> null
     }
 
-    // Pre-fetch local data for comparison to avoid redundant updates
-    val existingPhotos = if (selection != null) {
-        if (uris != null) {
-            val ids = uris.mapNotNull { runCatching { ContentUris.parseId(it) }.getOrNull() }
-            photoDao.getAll<Photo>("id IN (${ids.joinToString(",")})").associateBy { it.id }
-        } else {
-            // For generation-based sync, we don't know exactly which IDs changed, 
-            // so we might need all local photos for comparison if we want to be surgical.
-            // For simplicity and correctness, fetch all.
-            photoDao.getAll<Photo>().associateBy { it.id }
-        }
-    } else {
-        // Full sync: we'll check against all local data
-        photoDao.getAll<Photo>().associateBy { it.id }
-    }
-
+    val existingPhotos = photoDao.getAll<Photo>().associateBy { it.id }
     val newOrUpdatedPhotos = mutableListOf<Photo>()
 
     fun processCursor(cursor: android.database.Cursor, isVideo: Boolean) {
@@ -164,6 +154,7 @@ suspend fun syncPhotos(context: Context, database: PhotoDatabase, uris: List<Uri
         val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
         val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.WIDTH)
         val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.HEIGHT)
+        val isTrashedColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.IS_TRASHED)
         val durationColumn = if (isVideo) cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION) else -1
 
         val baseUri = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
@@ -177,12 +168,13 @@ suspend fun syncPhotos(context: Context, database: PhotoDatabase, uris: List<Uri
                 val dateModified = cursor.getLong(dateModifiedColumn)
                 val width = cursor.getInt(widthColumn)
                 val height = cursor.getInt(heightColumn)
+                val isTrashed = cursor.getInt(isTrashedColumn) == 1
                 val contentUri = ContentUris.withAppendedId(baseUri, id).toString()
                 val videoData = if (isVideo) VideoData(cursor.getLong(durationColumn)) else null
 
                 val existing = existingPhotos[id]
-                if (existing == null || existing.date != date || existing.uri != contentUri || existing.videoData != videoData || existing.width != width || existing.height != height || existing.dateModified != dateModified) {
-                    newOrUpdatedPhotos += Photo(id, name, contentUri, date, width, height, dateModified, existing?.exifSet ?: false, existing?.lat, existing?.long, videoData)
+                if (existing == null || existing.date != date || existing.uri != contentUri || existing.videoData != videoData || existing.width != width || existing.height != height || existing.dateModified != dateModified || existing.isTrashed != isTrashed) {
+                    newOrUpdatedPhotos += Photo(id, name, contentUri, date, width, height, dateModified, existing?.exifSet ?: false, existing?.lat, existing?.long, videoData, isTrashed)
                 }
             } catch (e: Exception) {
                 Log.e("SyncWorker", "Error processing photo/video from cursor", e)
@@ -190,22 +182,29 @@ suspend fun syncPhotos(context: Context, database: PhotoDatabase, uris: List<Uri
         }
     }
 
-    // Query MediaStore for the specific selection (generation or IDs)
     try {
+        val bundle = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+        }
         context.contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.WIDTH, MediaStore.Images.Media.HEIGHT, MediaStore.Images.Media.DATE_MODIFIED),
-            selection, null, null
+            arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.WIDTH, MediaStore.Images.Media.HEIGHT, MediaStore.Images.Media.DATE_MODIFIED, MediaStore.Images.Media.IS_TRASHED),
+            bundle, null
         )?.use { processCursor(it, false) }
     } catch (e: Exception) {
         Log.e("SyncWorker", "Error querying MediaStore for images", e)
     }
 
     try {
+        val bundle = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+        }
         context.contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.DATE_TAKEN, MediaStore.Video.Media.DATE_ADDED, MediaStore.Video.Media.WIDTH, MediaStore.Video.Media.HEIGHT, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.DATE_MODIFIED),
-            selection, null, null
+            arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.DATE_TAKEN, MediaStore.Video.Media.DATE_ADDED, MediaStore.Video.Media.WIDTH, MediaStore.Video.Media.HEIGHT, MediaStore.Video.Media.DURATION, MediaStore.Video.Media.DATE_MODIFIED, MediaStore.Video.Media.IS_TRASHED),
+            bundle, null
         )?.use { processCursor(it, true) }
     } catch (e: Exception) {
         Log.e("SyncWorker", "Error querying MediaStore for videos", e)

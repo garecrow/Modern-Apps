@@ -25,4 +25,5 @@ data class Photo(
     val long: Double?,
     @Embedded
     val videoData: VideoData?,
+    val isTrashed: Boolean = false,
 ) : DatabaseItem
