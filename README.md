@@ -38,7 +38,8 @@ Just for the "interesting" apps
 
 iOS: https://apps.apple.com/us/app/find-family-secure-private/id6760863634
 
-Note: GrapheneOS users must enable network location in order to use this app.
+Note: GrapheneOS users must enable network location and geocoder in order to use this app.
+Note for iOS users: there is a known bug where you may have to pick contact names twice / wait a few seconds before picking
 
 ### Features:
 - End-to-end encryption
