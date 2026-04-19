@@ -37,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -77,6 +78,11 @@ fun ContactList(
     onContactClick: (Contact) -> Unit,
     onAddContactClick: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadContacts()
+        viewModel.loadAccounts()
+    }
+
     val contacts by viewModel.contacts.collectAsState()
 
     val (favorites, otherContacts) = remember(contacts) { contacts.partition { it.isFavorite } }
