@@ -34,13 +34,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import com.vayunmathur.library.util.NavBackStack
 import com.vayunmathur.clock.R
 import com.vayunmathur.clock.Route
@@ -55,6 +61,7 @@ import com.vayunmathur.library.util.BottomNavBar
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.nowState
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -77,8 +84,9 @@ fun TimerPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
         }
     }) { paddingValues ->
         LazyColumn(
-            contentPadding = paddingValues + PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = paddingValues + PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize()
         ) {
             items(timers, key = { it.id }) { timer ->
                 TimerCard(timer, now, viewModel)
@@ -92,97 +100,142 @@ fun TimerCard(timer: Timer, now: Instant, viewModel: DatabaseViewModel) {
     val context = LocalContext.current
 
     // Calculate actual remaining time for the UI
-    val realRemainingTime = if (timer.isRunning) {
-        timer.remainingLength - (now - timer.remainingStartTime)
-    } else {
-        timer.remainingLength
+    val realRemainingTime = remember(timer, now) {
+        if (timer.isRunning) {
+            timer.remainingLength - (now - timer.remainingStartTime)
+        } else {
+            timer.remainingLength
+        }.coerceAtLeast(0.seconds)
     }
-    if(realRemainingTime < 0.seconds) return
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- Left: Circular Progress & Time ---
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
-                Canvas(Modifier.fillMaxSize()) {
-                    drawCircle(Color.Gray, style = Stroke(4f), alpha = 0.2f)
-                }
-
-                val sweep = (realRemainingTime.inWholeMilliseconds.toFloat() /
-                        timer.totalLength.inWholeMilliseconds.toFloat()) * 360f
-
-                val colorScheme = MaterialTheme.colorScheme
-                Canvas(Modifier.fillMaxSize()) {
-                    drawArc(
-                        color = colorScheme.primary,
-                        startAngle = -90f,
-                        sweepAngle = sweep.coerceAtLeast(0f),
-                        useCenter = false,
-                        style = Stroke(width = 6f, cap = StrokeCap.Round)
-                    )
-                }
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(timer.name, style = MaterialTheme.typography.labelSmall)
-                    Text(
-                        text = formatDuration(realRemainingTime),
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            // --- Right: Controls ---
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
-                // DELETE
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = timer.name.ifBlank { stringResource(R.string.label_timer) },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 IconButton(onClick = {
                     sendTimerNotification(context, timer, false)
                     viewModel.delete(timer)
                 }) {
                     IconDelete()
                 }
+            }
 
-                Row {
-                    // +1:00 Button
-                    FilledTonalButton(onClick = {
+            Spacer(Modifier.height(12.dp))
+
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp)) {
+                val colorScheme = MaterialTheme.colorScheme
+                val inactiveColor = colorScheme.outlineVariant
+                val activeColor = colorScheme.primary
+                val strokeWidth = 8.dp
+
+                Canvas(Modifier.fillMaxSize()) {
+                    val strokeWidthPx = strokeWidth.toPx()
+                    drawCircle(inactiveColor, style = Stroke(width = strokeWidthPx), alpha = 0.3f)
+
+                    val sweep = (realRemainingTime.inWholeMilliseconds.toFloat() /
+                            timer.totalLength.inWholeMilliseconds.coerceAtLeast(1000).toFloat()) * 360f
+
+                    drawArc(
+                        color = activeColor,
+                        startAngle = -90f,
+                        sweepAngle = sweep.coerceAtLeast(0f),
+                        useCenter = false,
+                        style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                    )
+                }
+
+                Text(
+                    text = formatTimerDuration(realRemainingTime),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = if (timer.isRunning) colorScheme.primary else colorScheme.onSurface
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilledTonalButton(
+                    onClick = {
                         val newLength = timer.remainingLength + 1.minutes
-                        val updatedTimer = timer.copy(remainingLength = newLength)
+                        val updatedTimer = timer.copy(
+                            remainingLength = newLength,
+                            totalLength = timer.totalLength + 1.minutes
+                        )
                         viewModel.upsertAsync(updatedTimer)
-
-                        // If it's already running, update the notification immediately
                         if (timer.isRunning) {
                             sendTimerNotification(context, updatedTimer, true)
                         }
-                    }) {
-                        Text(stringResource(R.string.button_add_minute))
                     }
+                ) {
+                    Text(stringResource(R.string.button_add_minute))
+                }
 
-                    Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(16.dp))
 
-                    // START / STOP Toggle
-                    FilledTonalButton(
-                        onClick = {
-                            if (timer.isRunning) {
-                                viewModel.upsertAsync(timer.stopped())
-                                sendTimerNotification(context, timer, false)
-                            } else {
-                                val startedTimer = timer.started()
-                                viewModel.upsertAsync(startedTimer)
-                                // We pass the current realRemainingTime to the service
-                                sendTimerNotification(context, startedTimer, true)
-                            }
+                FloatingActionButton(
+                    onClick = {
+                        if (timer.isRunning) {
+                            viewModel.upsertAsync(timer.stopped())
+                            sendTimerNotification(context, timer, false)
+                        } else {
+                            val startedTimer = timer.started()
+                            viewModel.upsertAsync(startedTimer)
+                            sendTimerNotification(context, startedTimer, true)
                         }
-                    ) {
-                        if (timer.isRunning) IconPause() else IconPlay()
-                    }
+                    },
+                    containerColor = if (timer.isRunning) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = if (timer.isRunning) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                    elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    if (timer.isRunning) IconPause() else IconPlay()
                 }
             }
         }
     }
 }
+
+fun formatTimerDuration(duration: Duration): String {
+    val totalSeconds = duration.inWholeSeconds
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+
+    return buildString {
+        if (hours > 0) {
+            append(hours)
+            append(":")
+            if (minutes < 10) append("0")
+        }
+        append(minutes)
+        append(":")
+        if (seconds < 10) append("0")
+        append(seconds)
+    }
+}
+
 
 /**
  * Helper function to communicate with the Foreground Service
