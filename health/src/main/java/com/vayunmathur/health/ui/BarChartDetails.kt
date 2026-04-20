@@ -61,6 +61,7 @@ import com.vayunmathur.health.R
 import com.vayunmathur.health.Route
 import com.vayunmathur.health.data.RecordType
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.vayunmathur.health.util.displayString
 import com.vayunmathur.library.ui.IconCheck
@@ -160,6 +161,7 @@ fun BarChartDetails(
     var dataState by remember { mutableStateOf(MetricDashboardData()) }
 
     val tz = TimeZone.currentSystemDefault()
+    val context = LocalContext.current
 
     val dayLabelFormat = stringResource(R.string.history_day_label)
     val monthLabelFormat = stringResource(R.string.history_month_label)
@@ -327,7 +329,6 @@ fun BarChartDetails(
                     2 -> stringResource(R.string.month_year_format, anchorDate.month.name.lowercase().replaceFirstChar { it.uppercase() }, anchorDate.year)
                     else -> anchorDate.year.toString()
                 }
-                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -473,6 +474,8 @@ fun GenericLineChart(
     val xAxisHeight = 24.dp
     val sideLabelWidth = 40.dp
 
+    val context = LocalContext.current
+
     BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(chartHeight)) {
         val density = LocalDensity.current
         val fullWidthPx = with(density) { maxWidth.toPx() }
@@ -613,6 +616,8 @@ fun GenericBarChart(
     val xAxisHeight = 24.dp
     val sideLabelWidth = 40.dp
 
+    val context = LocalContext.current
+
     BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(chartHeight)) {
         val density = LocalDensity.current
         val fullWidthPx = with(density) { maxWidth.toPx() }
@@ -682,7 +687,7 @@ fun GenericBarChart(
                 .padding(start = 4.dp)
         )
 
-        val goalY = (1f - (goalValue.toFloat() / maxChartValue.toFloat())) * actualChartHeightPx
+        val goalY = (1f - (goalValue.toFloat() / maxChartValue)) * actualChartHeightPx
         Text(
             text = format(goalValue.toDouble()),
             color = goalColor,
