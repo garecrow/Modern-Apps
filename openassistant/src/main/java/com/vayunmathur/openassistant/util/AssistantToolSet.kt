@@ -277,7 +277,7 @@ class AssistantToolSet(
         } catch (e: Exception) { "Error: ${e.message}" }
     }
 
-    @Tool(description = "Create a new note")
+    @Tool(description = "Create a new note in the notes app. Should only be used with EXPLICIT request by user")
     fun create_note(title: String, content: String): String {
         return try {
             launchIntentU(
