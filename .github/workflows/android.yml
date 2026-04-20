@@ -114,32 +114,44 @@ jobs:
           git add .
           VERSION_NAME="${{ steps.version_info.outputs.version_name }}"
           
-          # This commit exists ONLY in the runner's workspace
           git commit -m "chore: prepare release $VERSION_NAME" || echo "No changes to commit"
           git tag "$VERSION_NAME"
 
-      - name: Build and Sign APKs
+      - name: Build and Sign APKs (Parallel & No Lint)
         run: |
-          mkdir -p distribution_apks
+          # Construct the list of tasks (e.g., :app:assembleRelease :module2:assembleRelease)
+          TASKS=""
           for dir in ${{ env.module_dirs }}; do
             gradle_path=$(echo $dir | sed 's|/|:|g')
-          
-            ./gradlew :$gradle_path:assembleRelease \
-              -Pandroid.enableResourceOptimizations=true \
-              -Pandroid.enableR8.fullMode=true \
-              -PRELEASE_STORE_FILE="${{ github.workspace }}/${{ env.ks_filename }}" \
-              -PRELEASE_STORE_PASSWORD="${{ env.ks_store_pass }}" \
-              -PRELEASE_KEY_ALIAS="${{ env.ks_alias }}" \
-              -PRELEASE_KEY_PASSWORD="${{ env.ks_alias_pass }}"
-          
-            cp $dir/build/outputs/apk/release/*.apk distribution_apks/ || echo "Warning: No APK for $dir"
+            TASKS="$TASKS :$gradle_path:assembleRelease"
           done
+
+          echo "Starting parallel build for tasks: $TASKS"
+
+          # Flags explained:
+          # -x lint: Skips the Android Lint task
+          # -x test: Skips unit tests
+          # --parallel: Builds modules in parallel
+          ./gradlew $TASKS \
+            --parallel \
+            --no-daemon \
+            -x lint \
+            -x test \
+            -Pandroid.enableResourceOptimizations=true \
+            -Pandroid.enableR8.fullMode=true \
+            -PRELEASE_STORE_FILE="${{ github.workspace }}/${{ env.ks_filename }}" \
+            -PRELEASE_STORE_PASSWORD="${{ env.ks_store_pass }}" \
+            -PRELEASE_KEY_ALIAS="${{ env.ks_alias }}" \
+            -PRELEASE_KEY_PASSWORD="${{ env.ks_alias_pass }}"
+
+          # Consolidate all generated APKs into one directory
+          mkdir -p distribution_apks
+          find . -path "*/build/outputs/apk/release/*.apk" -exec cp {} distribution_apks/ \;
 
       - name: Push Tag Only
         if: success()
         run: |
           VERSION_NAME="${{ steps.version_info.outputs.version_name }}"
-          # CRITICAL: We push ONLY the tag. The HEAD commit remains local-only.
           git push origin "$VERSION_NAME"
 
       - name: Create GitHub Release
