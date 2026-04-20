@@ -10,11 +10,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,7 @@ import com.vayunmathur.findfamily.R
 import com.vayunmathur.library.ui.IconSave
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.findfamily.data.Waypoint
+import com.vayunmathur.library.ui.IconDelete
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +51,15 @@ fun WaypointEditPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewMode
         }) {
             IconSave()
         }
+    }, topBar = {
+        TopAppBar(title = { }, actions = {
+            IconButton({
+                viewModel.delete(waypoint)
+                backStack.pop()
+            }) {
+                IconDelete()
+            }
+        })
     }, bottomBar = {
         Surface(Modifier.heightIn(max = 400.dp).padding(BottomAppBarDefaults.windowInsets.asPaddingValues()), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(16.dp)) {
