@@ -13,4 +13,6 @@
     <string name="capture_pdf_title">Capturar PDF</string>
     <string name="request_camera_permission">Solicitar permiso de cámara</string>
     <string name="upload_image">Subir imagen</string>
+    <string name="pdf_saved">PDF guardado</string>
+    <string name="pdf_save_error">Error al guardar</string>
 </resources>

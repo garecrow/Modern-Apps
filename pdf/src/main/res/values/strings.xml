@@ -13,4 +13,6 @@
     <string name="capture_pdf_title">Capture PDF</string>
     <string name="request_camera_permission">Request Camera Permission</string>
     <string name="upload_image">Upload Image</string>
+    <string name="pdf_saved">PDF saved successfully</string>
+    <string name="pdf_save_error">Error saving PDF</string>
 </resources>

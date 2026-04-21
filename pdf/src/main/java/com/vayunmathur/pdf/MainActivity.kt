@@ -475,6 +475,24 @@ fun PdfViewerScreen(pdfDocument: EditablePdfDocument) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    val pdfSavedMessage = stringResource(R.string.pdf_saved)
+    val pdfSaveErrorMessage = stringResource(R.string.pdf_save_error)
+    val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        uri?.let {
+            coroutineScope.launch {
+                try {
+                    context.contentResolver.openFileDescriptor(it, "w")?.use { pfd ->
+                        pdfDocument.createWriteHandle().writeTo(pfd)
+                        Toast.makeText(context, pdfSavedMessage, Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("PdfViewerScreen", "Error saving PDF", e)
+                    Toast.makeText(context, pdfSaveErrorMessage, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     var showSearchBar by remember { mutableStateOf(false) }
     var searchResults by remember { mutableStateOf(emptyList<PdfRect>()) }
     var searchIndex by remember(searchResults) { mutableIntStateOf(0) }
@@ -550,6 +568,7 @@ fun PdfViewerScreen(pdfDocument: EditablePdfDocument) {
         topBar = {
             TopAppBar({ Text(stringResource(R.string.pdf_viewer_title)) }, actions = {
                 if (!showSearchBar) {
+                    IconButton({ downloadLauncher.launch(pdfName) }) { IconSave() }
                     IconButton({ showSearchBar = true }) { IconSearch() }
                     IconButton({
                         val intent = Intent(Intent.ACTION_SEND)

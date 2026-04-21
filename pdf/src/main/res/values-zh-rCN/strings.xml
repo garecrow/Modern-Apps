@@ -13,4 +13,6 @@
     <string name="capture_pdf_title">捕获 PDF</string>
     <string name="request_camera_permission">请求相机权限</string>
     <string name="upload_image">上传图片</string>
+    <string name="pdf_saved">PDF 已保存</string>
+    <string name="pdf_save_error">保存失败</string>
 </resources>
