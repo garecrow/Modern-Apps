@@ -7,13 +7,25 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.fragment.app.FragmentActivity
 import com.vayunmathur.library.ui.DynamicTheme
 import com.vayunmathur.library.ui.PermissionsChecker
 import com.vayunmathur.library.util.DatabaseViewModel
@@ -30,12 +42,17 @@ import com.vayunmathur.photos.data.PhotoDatabase
 import com.vayunmathur.photos.ui.GalleryPage
 import com.vayunmathur.photos.ui.MapPage
 import com.vayunmathur.photos.ui.PhotoPage
+import com.vayunmathur.photos.ui.SecureFolderPage
 import com.vayunmathur.photos.ui.TrashPage
 import com.vayunmathur.photos.util.ImageLoader
+import com.vayunmathur.photos.util.SyncWorker
 import kotlinx.serialization.Serializable
 import com.vayunmathur.library.R as LibraryR
+import com.vayunmathur.library.util.unlockDatabaseWithBiometrics
+import com.vayunmathur.photos.data.VaultDatabase
+import com.vayunmathur.photos.data.VaultPhoto
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -81,14 +98,25 @@ sealed interface Route: NavKey {
 
     @Serializable
     data object Trash: Route
+
+    @Serializable
+    data object SecureFolder: Route
 }
 
 @Composable
 fun Navigation(viewModel: DatabaseViewModel) {
     val backStack = rememberNavBackStack<Route>(Route.Gallery)
+    val context = LocalContext.current
+    val activity = context as FragmentActivity
+    var vaultViewModel by remember { mutableStateOf<DatabaseViewModel?>(null) }
+    var vaultPassword by remember { mutableStateOf<String?>(null) }
+
     MainNavigation(backStack) {
         entry<Route.Gallery> {
-            GalleryPage(backStack, viewModel)
+            GalleryPage(backStack, viewModel, vaultViewModel, vaultPassword, onVaultUnlocked = { vvm, pass -> 
+                vaultViewModel = vvm
+                vaultPassword = pass
+            })
         }
 
         entry<Route.Map> {
@@ -102,13 +130,37 @@ fun Navigation(viewModel: DatabaseViewModel) {
         entry<Route.Trash> {
             TrashPage(backStack, viewModel)
         }
+
+        entry<Route.SecureFolder> {
+            if (vaultViewModel == null) {
+                LaunchedEffect(Unit) {
+                    unlockDatabaseWithBiometrics(
+                        activity,
+                        onSuccess = { password ->
+                            val db = activity.buildDatabase<VaultDatabase>(emptyList(), password, "vault-db")
+                            vaultPassword = password
+                            vaultViewModel = DatabaseViewModel(db, VaultPhoto::class to db.vaultPhotoDao())
+                        },
+                        onFailure = {
+                            backStack.pop()
+                        }
+                    )
+                }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                SecureFolderPage(backStack, vaultViewModel!!, vaultPassword!!)
+            }
+        }
     }
 }
 
 private enum class MainRoute(val route: Route, @StringRes val titleRes: Int, val icon: Int) {
     Gallery(Route.Gallery, R.string.label_gallery, R.drawable.gallery_thumbnail_24px),
     Map(Route.Map, R.string.label_map, R.drawable.map_24px),
-    Trash(Route.Trash, R.string.label_trash, LibraryR.drawable.delete_24px)
+    Trash(Route.Trash, R.string.label_trash, LibraryR.drawable.delete_24px),
+    SecureFolder(Route.SecureFolder, R.string.label_secure_folder, R.drawable.lock_24px)
 }
 
 @Composable

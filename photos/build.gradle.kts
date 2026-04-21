@@ -10,6 +10,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.maplibre.compose)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)

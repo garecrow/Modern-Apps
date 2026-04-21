@@ -364,10 +364,23 @@ suspend inline fun <reified E : DatabaseItem> TrueDao<E>.getNullable(id: Long): 
 
 val databases: MutableMap<KClass<*>, RoomDatabase> = mutableMapOf()
 
+private var sqlCipherLoaded = false
+fun loadSqlCipher() {
+    if (sqlCipherLoaded) return
+    try {
+        System.loadLibrary("sqlcipher")
+        sqlCipherLoaded = true
+    } catch (e: UnsatisfiedLinkError) {
+        e.printStackTrace()
+    }
+}
+
 inline fun <reified T : RoomDatabase> Context.buildDatabase(
     migrations: List<Migration> = emptyList(),
-    encryptionPassword: String? = null
+    encryptionPassword: String? = null,
+    dbName: String = "passwords-db"
 ): T {
+    loadSqlCipher()
     synchronized(databases) {
         if (databases[T::class] != null) return databases[T::class]!! as T
 
@@ -384,12 +397,12 @@ inline fun <reified T : RoomDatabase> Context.buildDatabase(
             }
         }
 
-        encryptExistingDatabase(this, "passwords-db", password)
+        encryptExistingDatabase(this, dbName, password)
 
         val builder = Room.databaseBuilder(
             this,
             T::class.java,
-            "passwords-db"
+            dbName
         ).addMigrations(*migrations.toTypedArray())
 
         builder.openHelperFactory(SupportOpenHelperFactory(password.toByteArray(StandardCharsets.UTF_8)))
@@ -401,6 +414,7 @@ inline fun <reified T : RoomDatabase> Context.buildDatabase(
 }
 
 fun encryptExistingDatabase(context: Context, dbName: String, password: String) {
+    loadSqlCipher()
     val dbFile = context.getDatabasePath(dbName)
     if (!dbFile.exists() || dbFile.length() == 0L) return
 
@@ -420,7 +434,6 @@ fun encryptExistingDatabase(context: Context, dbName: String, password: String) 
     if (isEncrypted) return
 
     // It's not encrypted. Let's encrypt it.
-    System.loadLibrary("sqlcipher")
     val tempFile = context.getDatabasePath("${dbName}_temp")
     if (tempFile.exists()) tempFile.delete()
     tempFile.parentFile?.mkdirs()
@@ -434,6 +447,7 @@ fun encryptExistingDatabase(context: Context, dbName: String, password: String) 
             net.zetetic.database.sqlcipher.SQLiteDatabase.OPEN_READWRITE,
             null
         )
+        db.rawExecSQL("PRAGMA cipher_compatibility = 4")
         db.rawExecSQL("ATTACH DATABASE '${tempFile.absolutePath}' AS encrypted KEY '${password}'")
         db.rawExecSQL("SELECT sqlcipher_export('encrypted')")
         db.rawExecSQL("DETACH DATABASE encrypted")
@@ -508,6 +522,7 @@ class BiometricDatabaseHelper(val context: Context) {
 
         if (useBiometrics) {
             builder.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+            builder.setInvalidatedByBiometricEnrollment(false)
         }
 
         keyGenerator.init(builder.build())

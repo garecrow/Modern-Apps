@@ -7,6 +7,11 @@
     <string name="label_gallery">Gallery</string>
     <string name="label_map">Map</string>
     <string name="label_trash">Trash</string>
+    <string name="label_secure_folder">Secure Folder</string>
+    <string name="action_move_to_secure">Move to Secure Folder</string>
+    <string name="action_restore_from_secure">Restore from Secure Folder</string>
+    <string name="secure_folder_auth_title">Unlock Secure Folder</string>
+    <string name="secure_folder_auth_subtitle">Authenticate to access your secure photos</string>
     <string name="items_selected">%1$d selected</string>
     <string name="month_year_format">%1$s %2$d</string>
     <string name="taken_on">Taken on: %1$s</string>

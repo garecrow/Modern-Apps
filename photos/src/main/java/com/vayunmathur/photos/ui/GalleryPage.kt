@@ -1,6 +1,7 @@
 package com.vayunmathur.photos.ui
 
 import android.app.Activity
+import android.net.Uri
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -29,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -36,18 +39,27 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.fragment.app.FragmentActivity
 import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconDelete
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.NavBackStack
+import com.vayunmathur.library.util.buildDatabase
+import com.vayunmathur.library.util.unlockDatabaseWithBiometrics
 import com.vayunmathur.photos.NavigationBar
+import com.vayunmathur.photos.R
 import com.vayunmathur.photos.Route
 import com.vayunmathur.photos.data.Photo
+import com.vayunmathur.photos.data.VaultDatabase
+import com.vayunmathur.photos.data.VaultPhoto
 import com.vayunmathur.photos.util.ImageLoader
+import com.vayunmathur.photos.util.SecureFolderManager
 import com.vayunmathur.photos.util.SyncWorker
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format.MonthNames
@@ -57,10 +69,17 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GalleryPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
+fun GalleryPage(
+    backStack: NavBackStack<Route>,
+    viewModel: DatabaseViewModel,
+    vaultViewModel: DatabaseViewModel? = null,
+    vaultPassword: String? = null,
+    onVaultUnlocked: (DatabaseViewModel, String) -> Unit = { _, _ -> }
+) {
     val allPhotos by viewModel.data<Photo>().collectAsState()
     val photos by remember { derivedStateOf { allPhotos.filter { !it.isTrashed } } }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var columnCount by rememberSaveable { mutableFloatStateOf(3f) }
 
     LaunchedEffect(Unit) {
@@ -78,13 +97,20 @@ fun GalleryPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
         }
     }
 
+    val moveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            selectedIds.clear()
+            SyncWorker.runOnce(context)
+        }
+    }
+
     val photosGroupedByMonth by remember {
         derivedStateOf {
             photos.groupBy {
                 val date = Instant.fromEpochMilliseconds(it.date).toLocalDateTime(TimeZone.currentSystemDefault())
                 LocalDate(date.year, date.month, 1)
             }.toSortedMap(Comparator<LocalDate>(LocalDate::compareTo).reversed()).mapKeys {
-                context.getString(com.vayunmathur.photos.R.string.month_year_format, MonthNames.ENGLISH_ABBREVIATED.names[it.key.month.ordinal], it.key.year)
+                context.getString(R.string.month_year_format, MonthNames.ENGLISH_ABBREVIATED.names[it.key.month.ordinal], it.key.year)
             }.mapValues { pair -> pair.value.sortedByDescending { it.date } }
         }
     }
@@ -93,13 +119,70 @@ fun GalleryPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
         topBar = {
             if (isSelectionMode) {
                 TopAppBar(
-                    title = { Text(stringResource(com.vayunmathur.photos.R.string.items_selected, selectedIds.size)) },
+                    title = { Text(stringResource(R.string.items_selected, selectedIds.size)) },
                     navigationIcon = {
                         IconButton(onClick = { selectedIds.clear() }) {
                             IconClose()
                         }
                     },
                     actions = {
+                        IconButton(onClick = {
+                            val selectedPhotos = photos.filter { it.id in selectedIds }
+                            val activity = context as FragmentActivity
+                            
+                            fun performMove(vvm: DatabaseViewModel, pass: String) {
+                                scope.launch {
+                                    val sfm = SecureFolderManager(context)
+                                    val urisToDelete = mutableListOf<Uri>()
+                                    selectedPhotos.forEach { photo ->
+                                        try {
+                                            val (path, thumbPath) = sfm.encryptAndMove(
+                                                photo.uri.toUri(),
+                                                photo.name,
+                                                pass,
+                                                photo.videoData != null
+                                            )
+                                            vvm.upsert(VaultPhoto(
+                                                name = photo.name,
+                                                path = path,
+                                                thumbnailPath = thumbPath,
+                                                date = photo.date,
+                                                width = photo.width,
+                                                height = photo.height,
+                                                dateModified = photo.dateModified,
+                                                videoDuration = photo.videoData?.duration
+                                            ))
+                                            urisToDelete.add(photo.uri.toUri())
+                                            viewModel.delete(photo)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+                                    if (urisToDelete.isNotEmpty()) {
+                                        val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, urisToDelete)
+                                        moveLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                                    }
+                                }
+                            }
+
+                            if (vaultViewModel == null) {
+                                unlockDatabaseWithBiometrics(
+                                    activity,
+                                    onSuccess = { password ->
+                                        val db = activity.buildDatabase<VaultDatabase>(emptyList(), password, "vault-db")
+                                        val vvm = DatabaseViewModel(db, VaultPhoto::class to db.vaultPhotoDao())
+                                        onVaultUnlocked(vvm, password)
+                                        
+                                        performMove(vvm, password)
+                                    },
+                                    onFailure = {}
+                                )
+                            } else {
+                                performMove(vaultViewModel, vaultPassword!!)
+                            }
+                        }) {
+                            Icon(painterResource(R.drawable.lock_24px), contentDescription = stringResource(R.string.action_move_to_secure))
+                        }
                         IconButton(onClick = {
                             val uris = photos.filter { it.id in selectedIds }.map { it.uri.toUri() }
                             val pendingIntent = MediaStore.createTrashRequest(context.contentResolver, uris, true)

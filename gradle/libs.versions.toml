@@ -48,6 +48,7 @@ sol4k = "0.7.0"
 libphonenumber = "9.0.27"
 material3AdaptiveNavigationSuite = "1.4.0"
 maplibre = "0.12.1"
+foundation = "1.10.6"
 
 [libraries]
 # AndroidX Core & Lifecycle
@@ -134,6 +135,7 @@ gradle = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-compose-gradle = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 kotlin-serialization-gradle = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }
 symbol-processing-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
