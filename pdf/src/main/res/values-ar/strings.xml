@@ -13,4 +13,6 @@
     <string name="capture_pdf_title">التقاط PDF</string>
     <string name="request_camera_permission">طلب إذن الكاميرا</string>
     <string name="upload_image">تحميل صورة</string>
+    <string name="pdf_saved">تم حفظ PDF</string>
+    <string name="pdf_save_error">خطأ في الحفظ</string>
 </resources>

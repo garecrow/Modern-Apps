@@ -13,4 +13,6 @@
     <string name="capture_pdf_title">Capturer PDF</string>
     <string name="request_camera_permission">Autoriser l\'accès à l\'appareil photo</string>
     <string name="upload_image">Importer image</string>
+    <string name="pdf_saved">PDF enregistré</string>
+    <string name="pdf_save_error">Erreur d’enregistrement</string>
 </resources>
