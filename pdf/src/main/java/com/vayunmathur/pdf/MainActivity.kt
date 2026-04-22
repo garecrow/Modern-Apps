@@ -568,8 +568,8 @@ fun PdfViewerScreen(pdfDocument: EditablePdfDocument) {
         topBar = {
             TopAppBar({ Text(stringResource(R.string.pdf_viewer_title)) }, actions = {
                 if (!showSearchBar) {
-                    IconButton({ downloadLauncher.launch(pdfName) }) { IconSave() }
                     IconButton({ showSearchBar = true }) { IconSearch() }
+                    IconButton({ downloadLauncher.launch(pdfName) }) { IconSave() }
                     IconButton({
                         val intent = Intent(Intent.ACTION_SEND)
                         intent.type = "application/pdf"
