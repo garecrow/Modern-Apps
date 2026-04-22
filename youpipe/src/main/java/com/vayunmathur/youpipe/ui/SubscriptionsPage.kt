@@ -36,7 +36,9 @@ import androidx.compose.ui.unit.dp
 import com.vayunmathur.library.util.NavBackStack
 import coil.compose.AsyncImage
 import com.vayunmathur.library.ui.IconAdd
+import com.vayunmathur.library.ui.IconBackup
 import com.vayunmathur.library.ui.IconEdit
+import com.vayunmathur.library.ui.IconRestore
 import com.vayunmathur.library.util.BottomNavBar
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.youpipe.MAIN_BOTTOM_BAR_ITEMS
@@ -95,13 +97,13 @@ fun SubscriptionsPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewMod
                 IconButton({
                     // save subscription to file
                 }) {
-                    Icon(painterResource(R.drawable.outline_backup_24), null)
+                    IconBackup()
                 }
                 IconButton({
                     // open file then
                     filePickerActivityContract.launch("application/json")
                 }) {
-                    Icon(painterResource(R.drawable.outline_settings_backup_restore_24), null)
+                    IconRestore()
                 }
             }
         })

@@ -11,6 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.vayunmathur.library.ui.IconUpload
+import com.vayunmathur.library.ui.BackupButtons
+import com.vayunmathur.library.util.BiometricDatabaseHelper
+import androidx.compose.runtime.remember
 import com.vayunmathur.library.ui.ListPageR
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.NavBackStack
@@ -72,6 +75,11 @@ fun NotesListPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) 
     }, {
         Text(it.content.substringBefore('\n').take(40))
     }, { Route.Note(it) }, { Route.Note(0) }, searchEnabled = true, otherActions = {
+        val pass = remember { BiometricDatabaseHelper(context).getPassphrase(false) }
+        BackupButtons(
+            dbConfigs = listOf("passwords-db" to pass),
+            extraFiles = emptyList()
+        )
         IconButton({
             filePickerLauncher.launch(arrayOf("text/plain", "text/markdown"))
         }) {

@@ -575,6 +575,14 @@ class BiometricDatabaseHelper(val context: Context) {
         cipher.init(Cipher.DECRYPT_MODE, getSecretKey(useBiometrics), GCMParameterSpec(128, iv))
         return cipher
     }
+
+    fun getPassphrase(useBiometrics: Boolean): String {
+        return try {
+            decryptPassphrase(getCipherForDecryption(useBiometrics), useBiometrics)
+        } catch (e: Exception) {
+            ""
+        }
+    }
 }
 
 fun unlockDatabaseWithBiometrics(

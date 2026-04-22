@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.vayunmathur.library.util.NavBackStack
 import com.vayunmathur.library.ui.ListPage
 import com.vayunmathur.library.util.DatabaseViewModel
+import com.vayunmathur.library.ui.BackupButtons
+import com.vayunmathur.library.util.BiometricDatabaseHelper
 import com.vayunmathur.library.util.tryOrDefault
 import com.vayunmathur.passwords.data.Password
 import com.vayunmathur.passwords.R
@@ -39,13 +41,18 @@ import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
+fun MenuPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, passphrase: String) {
     val context = LocalContext.current
     ListPage<Password, Route, Route.PasswordEditPage>(backStack, viewModel, "Passwords", {
         Text(it.name.ifBlank {"(no name)"})
     }, {
         Text(it.userId)
-    }, { Route.PasswordPage(it) }, { Route.PasswordEditPage(0) }, Route.Settings, trailingContent = {
+    }, { Route.PasswordPage(it) }, { Route.PasswordEditPage(0) }, Route.Settings, otherActions = {
+        BackupButtons(
+            dbConfigs = listOf("passwords-db" to passphrase),
+            extraFiles = emptyList()
+        )
+    }, trailingContent = {
         if(it.totpSecret.isNullOrBlank()) return@ListPage
         var currentCode by remember { mutableStateOf("") }
         var progress by remember { mutableFloatStateOf(1f) }

@@ -41,6 +41,8 @@ import coil.compose.AsyncImage
 import com.vayunmathur.library.ui.IconAdd
 import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconMenu
+import com.vayunmathur.library.ui.BackupButtons
+import com.vayunmathur.library.util.BiometricDatabaseHelper
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.openassistant.util.copyUriToFile
 import dev.jeziellago.compose.markdowntext.MarkdownText
@@ -122,7 +124,14 @@ fun LiteRTChatUi(backStack: NavBackStack<Route>, conversationId: Long, viewModel
                     val newConv = stringResource(R.string.new_conversation)
                     CenterAlignedTopAppBar(
                         title = { Text(activeConversation?.title ?: newConv, fontWeight = FontWeight.Bold) },
-                        actions = { if (conversationId != 0L) IconButton({ backStack.reset(Route.ConversationPage(0)) }) { IconAdd() } },
+                        actions = {
+                            val pass = remember { BiometricDatabaseHelper(context).getPassphrase(false) }
+                            BackupButtons(
+                                dbConfigs = listOf("passwords-db" to pass),
+                                extraFiles = emptyList()
+                            )
+                            if (conversationId != 0L) IconButton({ backStack.reset(Route.ConversationPage(0)) }) { IconAdd() }
+                        },
                         navigationIcon = { if (navType == NavigationSuiteType.None) IconButton({ scope.launch { drawerState.open() } }) { IconMenu() } }
                     )
                 },

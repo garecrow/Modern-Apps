@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import com.vayunmathur.library.ui.IconCheck
 import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconUnarchive
+import com.vayunmathur.library.ui.BackupButtons
+import java.io.File
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.NavBackStack
 import com.vayunmathur.photos.NavigationBar
@@ -101,6 +103,11 @@ fun SecureFolderPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewMode
                         }) {
                             IconUnarchive()
                         }
+                    } else {
+                        BackupButtons(
+                            dbConfigs = listOf("vault-db" to password),
+                            extraFiles = listOf(File(context.filesDir, "secure_vault"))
+                        )
                     }
                 }
             )

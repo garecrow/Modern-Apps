@@ -167,3 +167,13 @@ fun IconEraser(tint: Color = LocalContentColor.current) {
 fun IconCamera(tint: Color = LocalContentColor.current) {
     Icon(painterResource(R.drawable.camera_alt_24px), "Camera", tint = tint)
 }
+
+@Composable
+fun IconBackup(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.outline_backup_24), "Backup", tint = tint)
+}
+
+@Composable
+fun IconRestore(tint: Color = LocalContentColor.current) {
+    Icon(painterResource(R.drawable.outline_settings_backup_restore_24), "Restore", tint = tint)
+}

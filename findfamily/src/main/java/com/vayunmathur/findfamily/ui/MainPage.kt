@@ -70,7 +70,11 @@ import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconCopy
 import com.vayunmathur.library.ui.IconDelete
 import com.vayunmathur.library.ui.IconEdit
+import com.vayunmathur.library.ui.BackupButtons
+import com.vayunmathur.library.util.BiometricDatabaseHelper
 import com.vayunmathur.library.util.DatabaseViewModel
+import androidx.compose.material3.TopAppBar
+import java.io.File
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -96,11 +100,26 @@ fun MainPage(platform: Platform, backStack: NavBackStack<Route>, viewModel: Data
     val timestamp = Clock.System.now() - 7.days
     val userPositions by remember { viewModel.getLatestMap() }.collectAsState(emptyMap())
 
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         viewModel.deleteIf<LocationValue>("timestamp < ${timestamp.epochSeconds}")
     }
 
-    Scaffold(floatingActionButton = {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    val pass = remember { BiometricDatabaseHelper(context).getPassphrase(false) }
+                    BackupButtons(
+                        dbConfigs = listOf("passwords-db" to pass),
+                        extraFiles = emptyList()
+                    )
+                }
+            )
+        },
+        floatingActionButton = {
         var expanded by remember { mutableStateOf(false) }
         FloatingActionButtonMenu(expanded, {
             ToggleFloatingActionButton(expanded, {expanded = it}) {
