@@ -26,7 +26,8 @@ data class Block(
 
 data class LevelPack(
     val name: String,
-    val levels: List<LevelData>
+    val levels: List<LevelData>,
+    val colorScheme: PackColorScheme? = null
 ) {
     companion object {
         private val PACK_FILES = listOf(
@@ -53,11 +54,53 @@ data class LevelData(
     val lastMovedBlockIndex: Int? = null
 )
 
+data class PackColorScheme(
+    val primary: Long,
+    val secondary: Long,
+    val tertiary: Long,
+    val background: Long,
+    val surface: Long,
+    val primaryContainer: Long,
+    val secondaryContainer: Long,
+    val onPrimary: Long = 0xFFFFFFFF,
+    val onSecondary: Long = 0xFFFFFFFF,
+    val onTertiary: Long = 0xFFFFFFFF,
+    val onBackground: Long = 0xFFFFFFFF,
+    val onSurface: Long = 0xFFFFFFFF,
+    val error: Long = 0xFFFF0000
+)
+
 private fun packFromJson(json: String): LevelPack {
     val jsonObject = Json.parseToJsonElement(json).jsonObject
+    val colors = jsonObject["colors"]?.jsonObject?.let {
+        fun parseColor(key: String, default: Long): Long {
+            return it[key]?.jsonPrimitive?.content?.let { content ->
+                try {
+                    content.removePrefix("0x").removePrefix("#").toLong(16)
+                } catch (_: Exception) {
+                    default
+                }
+            } ?: default
+        }
+        PackColorScheme(
+            primary = parseColor("primary", 0xFF3D3021),
+            secondary = parseColor("secondary", 0xFF4A3B2A),
+            tertiary = parseColor("tertiary", 0xFF8B7E6A),
+            background = parseColor("background", 0xFF4A3B2A),
+            surface = parseColor("surface", 0xFF3D3021),
+            primaryContainer = parseColor("primaryContainer", 0xFFFFA500),
+            secondaryContainer = parseColor("secondaryContainer", 0xFF6F5E55),
+            onPrimary = parseColor("onPrimary", 0xFFFFFFFF),
+            onSecondary = parseColor("onSecondary", 0xFFFFFFFF),
+            onTertiary = parseColor("onTertiary", 0xFFFFFFFF),
+            onBackground = parseColor("onBackground", 0xFFFFFFFF),
+            onSurface = parseColor("onSurface", 0xFFFFFFFF),
+            error = parseColor("error", 0xFFFF0000)
+        )
+    }
     return LevelPack(jsonObject["name"]!!.jsonPrimitive.content, jsonObject["levels"]!!.jsonArray.map {
         fromJson(it.jsonObject)
-    })
+    }, colors)
 }
 
 private fun fromJson(json: JsonObject): LevelData {

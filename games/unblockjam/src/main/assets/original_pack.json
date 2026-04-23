@@ -1,6 +1,15 @@
 {
   "name": "Original Pack",
-"levels": [
+  "colors": {
+    "primary": "0xFF3D3021",
+    "secondary": "0xFF4A3B2A",
+    "tertiary": "0xFFFF0000",
+    "background": "0xFF4A3B2A",
+    "surface": "0xFF3D3021",
+    "primaryContainer": "0xFFFFA500",
+    "secondaryContainer": "0xFF6F5E55"
+  },
+  "levels": [
   {
     "id": 0,
     "b": [

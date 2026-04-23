@@ -110,10 +110,16 @@ fun Navigation(completedLevelsRepository: CompletedLevelsRepository) {
             PackScreen(backStack)
         }
         entry<Route.LevelSelector> {
-            LevelScreen(backStack, completedLevelsRepository, it.packIndex)
+            val pack = LevelPack.PACKS[it.packIndex]
+            UnblockJamTheme(pack = pack) {
+                LevelScreen(backStack, completedLevelsRepository, it.packIndex)
+            }
         }
         entry<Route.Game> {
-            GameScreen(backStack, completedLevelsRepository, it.packIndex, it.levelIndex)
+            val pack = LevelPack.PACKS[it.packIndex]
+            UnblockJamTheme(pack = pack) {
+                GameScreen(backStack, completedLevelsRepository, it.packIndex, it.levelIndex)
+            }
         }
     }
 }
@@ -425,7 +431,7 @@ fun GameBoard(
             levelData.blocks.forEachIndexed { index, block ->
                 val isMainBlock = index == 0
                 val color = if (isMainBlock)
-                    MaterialTheme.colorScheme.error
+                    MaterialTheme.colorScheme.tertiary
                 else if (block.fixed)
                     MaterialTheme.colorScheme.secondaryContainer
                 else
