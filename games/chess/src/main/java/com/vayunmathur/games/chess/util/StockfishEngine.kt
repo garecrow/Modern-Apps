@@ -42,9 +42,9 @@ object StockfishEngine {
         }
 
         CoroutineScope(Dispatchers.IO).launch {
-            val evalFilePath = copyNNUEFile(context, evalFileName)
-            val evalFileSmallPath = copyNNUEFile(context, evalFileSmallName)
-            Log.d("StockfishEngine", "NNUE file copied to: $evalFilePath")
+            val evalFilePath = context.getExternalFilesDir(null)!!.resolve(evalFileName).absolutePath
+            val evalFileSmallPath = context.getExternalFilesDir(null)!!.resolve(evalFileSmallName).absolutePath
+            Log.d("StockfishEngine", "NNUE file path: $evalFilePath")
             inputChannel.send("uci")
             inputChannel.send("setoption name EvalFile value $evalFilePath")
             inputChannel.send("setoption name EvalFileSmall value $evalFileSmallPath")
@@ -72,15 +72,4 @@ object StockfishEngine {
         }
     }
 
-    private fun copyNNUEFile(context: Context, fileName: String): String {
-        val outFile = context.filesDir.resolve(fileName)
-        if (!outFile.exists()) {
-            context.assets.open(fileName).use { input ->
-                outFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-        }
-        return outFile.absolutePath
-    }
 }

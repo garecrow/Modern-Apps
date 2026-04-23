@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vayunmathur.library.ui.DynamicTheme
+import com.vayunmathur.library.ui.InitialDownloadChecker
+import com.vayunmathur.library.util.DataStoreUtils
 import com.vayunmathur.games.chess.util.ChessViewModel
 import com.vayunmathur.games.chess.util.ChessUiState
 import com.vayunmathur.games.chess.util.GameMode
@@ -70,30 +72,41 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val ds = DataStoreUtils.getInstance(this)
+
         setContent {
             DynamicTheme {
-                val viewModel: ChessViewModel = viewModel()
-
-                var showNewGameDialog by remember { mutableStateOf(true) }
-
-                LaunchedEffect(Unit) {
-                    StockfishEngine.start(this@MainActivity, "nn-c288c895ea92.nnue", "nn-37f18f62d772.nnue")
-                }
-
-                ChessGame(
-                    viewModel = viewModel,
-                    onSquareClick = viewModel::onSquareClick,
-                    onPromote = viewModel::onPromote,
-                    onNewGame = { showNewGameDialog = true }
-                )
-
-                if (showNewGameDialog) {
-                    NewGameDialog(
-                        onNewGame = {
-                            viewModel.onNewGame(it)
-                            showNewGameDialog = false
-                        }
+                InitialDownloadChecker(
+                    ds = ds,
+                    filesToDownload = listOf(
+                        Triple("https://tests.stockfishchess.org/api/nn/nn-c288c895ea92.nnue", "nn-c288c895ea92.nnue", "Big Neural Network"),
+                        Triple("https://tests.stockfishchess.org/api/nn/nn-37f18f62d772.nnue", "nn-37f18f62d772.nnue", "Small Neural Network")
                     )
+                ) {
+                    val viewModel: ChessViewModel = viewModel()
+
+                    var showNewGameDialog by remember { mutableStateOf(true) }
+
+                    LaunchedEffect(Unit) {
+                        StockfishEngine.start(this@MainActivity, "nn-c288c895ea92.nnue", "nn-37f18f62d772.nnue")
+                    }
+
+                    ChessGame(
+                        viewModel = viewModel,
+                        onSquareClick = viewModel::onSquareClick,
+                        onPromote = viewModel::onPromote,
+                        onNewGame = { showNewGameDialog = true }
+                    )
+
+                    if (showNewGameDialog) {
+                        NewGameDialog(
+                            onNewGame = {
+                                viewModel.onNewGame(it)
+                                showNewGameDialog = false
+                            }
+                        )
+                    }
                 }
             }
         }

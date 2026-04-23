@@ -79,7 +79,7 @@ fun InitialDownloadScreen(
                     val isDone by ds.booleanFlow("done_$fileName").collectAsState(false)
 
                     FileProgressItem(
-                        fileName = fileName,
+                        label = desc,
                         progress = progress,
                         speedMbps = speedMbps,
                         isDone = isDone
@@ -92,7 +92,7 @@ fun InitialDownloadScreen(
 
 @Composable
 fun FileProgressItem(
-    fileName: String,
+    label: String,
     progress: Double,
     speedMbps: Double,
     isDone: Boolean
@@ -109,7 +109,7 @@ fun FileProgressItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                fileName,
+                label,
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1.0f),
                 maxLines = 1
