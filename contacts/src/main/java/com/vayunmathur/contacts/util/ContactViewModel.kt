@@ -43,8 +43,9 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun loadContacts() {
-        viewModelScope.launch {
-            _contacts.value = Contact.getAllContacts(getApplication())
+        viewModelScope.launch(Dispatchers.IO) {
+            val loaded = Contact.getAllContacts(getApplication())
+            _contacts.value = loaded
         }
     }
 

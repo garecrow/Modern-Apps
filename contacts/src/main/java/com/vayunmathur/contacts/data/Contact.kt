@@ -2,7 +2,6 @@ package com.vayunmathur.contacts.data
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
-import android.database.Cursor
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.Profile
@@ -362,6 +361,14 @@ data class Contact(
             return details
         }
 
+        private data class RawContactInfo(
+            val id: Long,
+            val displayName: String?,
+            val isFavorite: Boolean,
+            val accountName: String?,
+            val accountType: String?
+        )
+
         private fun getContacts(context: Context, contactId: Long?): List<Contact> {
             val contentResolver = context.contentResolver
             val uri = ContactsContract.RawContacts.CONTENT_URI
@@ -373,29 +380,46 @@ data class Contact(
                 ContactsContract.RawContacts.ACCOUNT_TYPE,
             )
             val contacts = mutableListOf<Contact>()
+
+            val rawContacts = mutableListOf<RawContactInfo>()
             try {
                 val cursor = contentResolver.query(uri, projection, if(contactId == null) null else "${ContactsContract.Contacts._ID} = ?", listOfNotNull(contactId?.toString()).toTypedArray(), null)
 
                 cursor?.use {
+                    val idIdx = it.getColumnIndexOrThrow(ContactsContract.RawContacts._ID)
+                    val nameIdx = it.getColumnIndexOrThrow(ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY)
+                    val starredIdx = it.getColumnIndexOrThrow(ContactsContract.RawContacts.STARRED)
+                    val accountNameIdx = it.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_NAME)
+                    val accountTypeIdx = it.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_TYPE)
+
                     while (it.moveToNext()) {
                         try {
-                            val id = it.getLong(it.getColumnIndexOrThrow(ContactsContract.RawContacts._ID))
-                            val displayName = it.getStringOrNull(it.getColumnIndexOrThrow(ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY))
-                            val isFavorite = it.getInt(it.getColumnIndexOrThrow(ContactsContract.RawContacts.STARRED)) == 1
-                            val accountName = it.getStringOrNull(it.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_NAME))
-                            val accountType = it.getStringOrNull(it.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_TYPE))
-
-                            var details = getDetails(context, id, false)
-                            details = processDetails(details, displayName) ?: continue
-
-                            contacts += Contact(id, accountType, accountName, isFavorite, details)
+                            rawContacts.add(RawContactInfo(
+                                id = it.getLong(idIdx),
+                                displayName = it.getStringOrNull(nameIdx),
+                                isFavorite = it.getInt(starredIdx) == 1,
+                                accountName = it.getStringOrNull(accountNameIdx),
+                                accountType = it.getStringOrNull(accountTypeIdx)
+                            ))
                         } catch (e: Exception) {
-                            Log.e("Contact", "Error constructing contact from cursor", e)
+                            Log.e("Contact", "Error constructing raw contact info from cursor", e)
                         }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("Contact", "Error querying contacts", e)
+            }
+
+            if (rawContacts.isEmpty()) return emptyList()
+
+            // Fetch details for all fetched raw contacts
+            val allDetails = getDetailsInternal(context, contactId)
+
+            for (raw in rawContacts) {
+                var details = allDetails[raw.id] ?: ContactDetails.empty()
+                details = processDetails(details, raw.displayName) ?: continue
+
+                contacts += Contact(raw.id, raw.accountType, raw.accountName, raw.isFavorite, details)
             }
             return contacts
         }
@@ -415,143 +439,156 @@ data class Contact(
 }
 
 fun getDetails(context: Context, id: Long, isProfile: Boolean = false): ContactDetails {
+    return getDetailsInternal(context, id, isProfile)[id] ?: ContactDetails.empty()
+}
+
+fun getDetailsInternal(context: Context, id: Long? = null, isProfile: Boolean = false): Map<Long, ContactDetails> {
     val contentResolver = context.contentResolver
-    val contactId = id.toString()
 
-    fun <T: ContactDetail<T>> queryData(projection: List<String>, mimeType: String, datumFromCursor: (Cursor) -> T?): List<T> {
-        val data = mutableListOf<T>()
-        try {
-            contentResolver.query(
-                if(isProfile) Uri.withAppendedPath(Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY) else ContactsContract.Data.CONTENT_URI,
-                projection.toTypedArray(),
-                "${ContactsContract.Data.RAW_CONTACT_ID} = ? AND ${ContactsContract.Data.MIMETYPE} = ?",
-                arrayOf(contactId, mimeType),
-                null
-            )?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    try {
-                        datumFromCursor(cursor)?.let {
-                            data.add(it)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("Contact", "Error constructing contact detail from cursor", e)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("Contact", "Error querying contact details for mimetype: $mimeType", e)
-        }
-        return data
-    }
-
-    val phoneNumbers = queryData(listOf(CDKPhone._ID, CDKPhone.NUMBER, CDKPhone.TYPE), CDKPhone.CONTENT_ITEM_TYPE) {
-        val id = it.getLong(it.getColumnIndexOrThrow(CDKPhone._ID))
-        val number = it.getString(it.getColumnIndexOrThrow(CDKPhone.NUMBER))
-        val type = it.getInt(it.getColumnIndexOrThrow(CDKPhone.TYPE))
-        PhoneNumber(id, number, type)
-    }
-
-    val emails = queryData(listOf(CDKEmail._ID, CDKEmail.ADDRESS, CDKEmail.TYPE), CDKEmail.CONTENT_ITEM_TYPE) {
-        val id = it.getLong(it.getColumnIndexOrThrow(CDKEmail._ID))
-        val email = it.getString(it.getColumnIndexOrThrow(CDKEmail.ADDRESS))
-        val type = it.getInt(it.getColumnIndexOrThrow(CDKEmail.TYPE))
-        Email(id, email, type)
-    }
-
-    val projection = listOf(
-        CDKStructuredPostal._ID,
-        CDKStructuredPostal.FORMATTED_ADDRESS,
-        CDKStructuredPostal.TYPE,
-        CDKStructuredPostal.STREET,
-        CDKStructuredPostal.CITY,
-        CDKStructuredPostal.REGION,
-        CDKStructuredPostal.POSTCODE,
-        CDKStructuredPostal.COUNTRY
+    val projection = arrayOf(
+        ContactsContract.Data.RAW_CONTACT_ID,
+        ContactsContract.Data._ID,
+        ContactsContract.Data.MIMETYPE,
+        ContactsContract.Data.DATA1,
+        ContactsContract.Data.DATA2,
+        ContactsContract.Data.DATA3,
+        ContactsContract.Data.DATA4,
+        ContactsContract.Data.DATA5,
+        ContactsContract.Data.DATA6,
+        ContactsContract.Data.DATA7,
+        ContactsContract.Data.DATA8,
+        ContactsContract.Data.DATA9,
+        ContactsContract.Data.DATA10,
+        ContactsContract.Data.DATA15
     )
 
-    val addresses = queryData(projection, CDKStructuredPostal.CONTENT_ITEM_TYPE) { cursor ->
-        val id = cursor.getLong(cursor.getColumnIndexOrThrow(CDKStructuredPostal._ID))
-        val type = cursor.getInt(cursor.getColumnIndexOrThrow(CDKStructuredPostal.TYPE))
+    val phoneNumbersMap = mutableMapOf<Long, MutableList<PhoneNumber>>()
+    val emailsMap = mutableMapOf<Long, MutableList<Email>>()
+    val addressesMap = mutableMapOf<Long, MutableList<Address>>()
+    val datesMap = mutableMapOf<Long, MutableList<Event>>()
+    val photosMap = mutableMapOf<Long, MutableList<Photo>>()
+    val namesMap = mutableMapOf<Long, MutableList<Name>>()
+    val orgsMap = mutableMapOf<Long, MutableList<Organization>>()
+    val notesMap = mutableMapOf<Long, MutableList<Note>>()
+    val nicknamesMap = mutableMapOf<Long, MutableList<Nickname>>()
 
-        // 2. Attempt to get the formatted address
-        var formatted = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKStructuredPostal.FORMATTED_ADDRESS))
+    val rawContactIds = mutableSetOf<Long>()
 
-        // 3. Fallback logic: if formatted is null, build it from parts
-        if (formatted.isNullOrBlank()) {
-            val street = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKStructuredPostal.STREET))
-            val city = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKStructuredPostal.CITY))
-            val region = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKStructuredPostal.REGION))
-            val code = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKStructuredPostal.POSTCODE))
-            val country = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKStructuredPostal.COUNTRY))
+    try {
+        contentResolver.query(
+            if (isProfile) Uri.withAppendedPath(Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY) else ContactsContract.Data.CONTENT_URI,
+            projection,
+            if (id != null) "${ContactsContract.Data.CONTACT_ID} = ?" else null,
+            if (id != null) arrayOf(id.toString()) else null,
+            null
+        )?.use { cursor ->
+            val rawIdIdx = cursor.getColumnIndexOrThrow(ContactsContract.Data.RAW_CONTACT_ID)
+            val idIdx = cursor.getColumnIndexOrThrow(ContactsContract.Data._ID)
+            val mimeIdx = cursor.getColumnIndexOrThrow(ContactsContract.Data.MIMETYPE)
+            val d1Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA1)
+            val d2Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA2)
+            val d3Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA3)
+            val d4Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA4)
+            val d5Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA5)
+            val d6Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA6)
+            val d7Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA7)
+            val d8Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA8)
+            val d9Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA9)
+            val d10Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA10)
+            val d15Idx = cursor.getColumnIndexOrThrow(ContactsContract.Data.DATA15)
 
-            // Join non-null components with a comma or newline
-            formatted = listOfNotNull(street, city, region, code, country)
-                .filter { it.isNotBlank() }
-                .joinToString(", ")
+            while (cursor.moveToNext()) {
+                try {
+                    val rawId = cursor.getLong(rawIdIdx)
+                    rawContactIds.add(rawId)
+                    val dataId = cursor.getLong(idIdx)
+                    when (cursor.getString(mimeIdx)) {
+                        CDKPhone.CONTENT_ITEM_TYPE -> {
+                            val number = cursor.getStringOrNull(d1Idx) ?: ""
+                            val type = cursor.getInt(d2Idx)
+                            phoneNumbersMap.getOrPut(rawId) { mutableListOf() }.add(PhoneNumber(dataId, number, type))
+                        }
+                        CDKEmail.CONTENT_ITEM_TYPE -> {
+                            val address = cursor.getStringOrNull(d1Idx) ?: ""
+                            val type = cursor.getInt(d2Idx)
+                            emailsMap.getOrPut(rawId) { mutableListOf() }.add(Email(dataId, address, type))
+                        }
+                        CDKStructuredPostal.CONTENT_ITEM_TYPE -> {
+                            var formatted = cursor.getStringOrNull(d1Idx)
+                            val type = cursor.getInt(d2Idx)
+                            if (formatted.isNullOrBlank()) {
+                                val street = cursor.getStringOrNull(d4Idx)
+                                val city = cursor.getStringOrNull(d7Idx)
+                                val region = cursor.getStringOrNull(d8Idx)
+                                val code = cursor.getStringOrNull(d9Idx)
+                                val country = cursor.getStringOrNull(d10Idx)
+                                formatted = listOfNotNull(street, city, region, code, country)
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(", ")
+                            }
+                            addressesMap.getOrPut(rawId) { mutableListOf() }.add(Address(dataId, formatted, type))
+                        }
+                        CDKEvent.CONTENT_ITEM_TYPE -> {
+                            val date = cursor.getStringOrNull(d1Idx) ?: ""
+                            val type = cursor.getInt(d2Idx)
+                            val localDate = if (date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
+                                LocalDate.parse(date, LocalDate.Formats.ISO)
+                            } else if (date.matches(Regex("\\d{8}"))) {
+                                LocalDate.parse(date, LocalDate.Format { year(); monthNumber(); day() })
+                            } else null
+
+                            if (localDate != null) {
+                                datesMap.getOrPut(rawId) { mutableListOf() }.add(Event(dataId, localDate, type))
+                            }
+                        }
+                        CDKPhoto.CONTENT_ITEM_TYPE -> {
+                            val photoBlob = cursor.getBlobOrNull(d15Idx)
+                            if (photoBlob != null) {
+                                photosMap.getOrPut(rawId) { mutableListOf() }.add(Photo(dataId, Base64.encode(photoBlob)))
+                            }
+                        }
+                        CDKSName.CONTENT_ITEM_TYPE -> {
+                            val prefix = cursor.getStringOrNull(d4Idx) ?: ""
+                            val given = cursor.getStringOrNull(d2Idx) ?: ""
+                            val middle = cursor.getStringOrNull(d5Idx) ?: ""
+                            val family = cursor.getStringOrNull(d3Idx) ?: ""
+                            val suffix = cursor.getStringOrNull(d6Idx) ?: ""
+                            namesMap.getOrPut(rawId) { mutableListOf() }.add(Name(dataId, prefix, given, middle, family, suffix))
+                        }
+                        CDKOrg.CONTENT_ITEM_TYPE -> {
+                            val company = cursor.getStringOrNull(d1Idx) ?: ""
+                            orgsMap.getOrPut(rawId) { mutableListOf() }.add(Organization(dataId, company))
+                        }
+                        CDKNote.CONTENT_ITEM_TYPE -> {
+                            val noteContent = cursor.getStringOrNull(d1Idx) ?: ""
+                            notesMap.getOrPut(rawId) { mutableListOf() }.add(Note(dataId, noteContent))
+                        }
+                        CDKNickname.CONTENT_ITEM_TYPE -> {
+                            val nickname = cursor.getStringOrNull(d1Idx) ?: ""
+                            val type = cursor.getInt(d2Idx)
+                            nicknamesMap.getOrPut(rawId) { mutableListOf() }.add(Nickname(dataId, nickname, type))
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("Contact", "Error constructing contact detail from cursor", e)
+                }
+            }
         }
-
-        Address(id, formatted, type)
+    } catch (e: Exception) {
+        Log.e("Contact", "Error querying contact details", e)
     }
 
-    // Dates
-    val dates = queryData(listOf(CDKEvent._ID, CDKEvent.START_DATE, CDKEvent.TYPE), CDKEvent.CONTENT_ITEM_TYPE) { cursor ->
-        val id = cursor.getLong(cursor.getColumnIndexOrThrow(CDKEvent._ID))
-        val date = cursor.getString(cursor.getColumnIndexOrThrow(CDKEvent.START_DATE))
-        val type = cursor.getInt(cursor.getColumnIndexOrThrow(CDKEvent.TYPE))
-        val localDate = if(date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
-            LocalDate.parse(date, LocalDate.Formats.ISO)
-        } else if(date.matches(Regex("\\d{8}"))) {
-            LocalDate.parse(date, LocalDate.Format { year(); monthNumber(); day() })
-        } else {
-            return@queryData null
-        }
-        Event(id,localDate, type)
+    return rawContactIds.associateWith { rawId ->
+        ContactDetails(
+            phoneNumbersMap[rawId]?.distinct() ?: emptyList(),
+            emailsMap[rawId]?.distinct() ?: emptyList(),
+            addressesMap[rawId]?.distinct() ?: emptyList(),
+            datesMap[rawId]?.distinct() ?: emptyList(),
+            photosMap[rawId]?.distinct() ?: emptyList(),
+            namesMap[rawId]?.distinct() ?: emptyList(),
+            orgsMap[rawId]?.distinct() ?: emptyList(),
+            notesMap[rawId]?.distinct() ?: emptyList(),
+            nicknamesMap[rawId]?.distinct() ?: emptyList()
+        )
     }
-
-    // Photos
-    val photos = queryData(listOf(CDKPhoto._ID, CDKPhoto.PHOTO), CDKPhoto.CONTENT_ITEM_TYPE) { cursor ->
-        val id = cursor.getLong(cursor.getColumnIndexOrThrow(CDKPhoto._ID))
-        val photo = cursor.getBlobOrNull(cursor.getColumnIndexOrThrow(CDKPhoto.PHOTO))?.let { Base64.encode(it) }
-        if(photo == null) return@queryData null
-        Photo(id, photo)
-    }
-
-    val names = queryData(listOf(
-        CDKSName._ID,
-        CDKSName.PREFIX,
-        CDKSName.GIVEN_NAME,
-        CDKSName.MIDDLE_NAME,
-        CDKSName.FAMILY_NAME,
-        CDKSName.SUFFIX
-    ), CDKSName.CONTENT_ITEM_TYPE) { cursor ->
-        val id = cursor.getLong(cursor.getColumnIndexOrThrow(CDKSName._ID))
-        val namePrefix = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKSName.PREFIX)) ?: ""
-        val firstName = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKSName.GIVEN_NAME)) ?: ""
-        val middleName = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKSName.MIDDLE_NAME)) ?: ""
-        val lastName = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKSName.FAMILY_NAME)) ?: ""
-        val nameSuffix = cursor.getStringOrNull(cursor.getColumnIndexOrThrow(CDKSName.SUFFIX)) ?: ""
-
-        Name(id, namePrefix, firstName, middleName, lastName, nameSuffix)
-    }
-
-    val orgs = queryData(listOf(CDKOrg._ID, CDKOrg.COMPANY), CDKOrg.CONTENT_ITEM_TYPE) {
-        val id = it.getLong(it.getColumnIndexOrThrow(CDKOrg._ID))
-        val company = it.getStringOrNull(it.getColumnIndexOrThrow(CDKOrg.COMPANY)) ?: ""
-        Organization(id, company)
-    }
-
-    val note = queryData(listOf(CDKNote._ID, CDKNote.NOTE), CDKNote.CONTENT_ITEM_TYPE) {
-        val id = it.getLong(it.getColumnIndexOrThrow(CDKNote._ID))
-        val note = it.getStringOrNull(it.getColumnIndexOrThrow(CDKNote.NOTE)) ?: ""
-        Note(id, note)
-    }
-
-    val nicknames = queryData(listOf(CDKNickname._ID, CDKNickname.NAME, CDKNickname.TYPE), CDKNickname.CONTENT_ITEM_TYPE) {
-        val id = it.getLong(it.getColumnIndexOrThrow(CDKNickname._ID))
-        val nickname = it.getStringOrNull(it.getColumnIndexOrThrow(CDKNickname.NAME)) ?: ""
-        val type = it.getInt(it.getColumnIndexOrThrow(CDKNickname.TYPE))
-        Nickname(id, nickname, type)
-    }
-
-    return ContactDetails(phoneNumbers.distinct(), emails.distinct(), addresses.distinct(), dates.distinct(), photos.distinct(), names.distinct(), orgs.distinct(), note.distinct(), nicknames.distinct())
 }
