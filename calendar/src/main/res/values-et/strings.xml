@@ -1,3 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings">Seadistused</string>
+    <string name="cancel">Katkesta</string>
+    <string name="ok">Sobib</string>
+    <string name="delete">Kustuta</string>
 </resources>
