@@ -1,3 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Kell</string>
+    <string name="label_alarm">Äratus</string>
+    <string name="label_clock">Kell</string>
+    <string name="label_timer">Taimer</string>
+    <string name="label_stopwatch">Stopper</string>
+    <string name="no_alarms">Sa pole lisanud äratusi</string>
+    <string name="button_stop">LÕPETA</string>
 </resources>
