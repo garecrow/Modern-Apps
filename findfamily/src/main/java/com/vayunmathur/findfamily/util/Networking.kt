@@ -86,7 +86,10 @@ object Networking {
                 contentType(ContentType.Application.Json)
                 setBody(body)
             }
-            if(response.status != HttpStatusCode.OK) return@checkNetworkDown null
+            if(response.status != HttpStatusCode.OK) {
+                println(response.status)
+                return@checkNetworkDown null
+            }
             val result = response.body<T>()
             return@checkNetworkDown result
         }
