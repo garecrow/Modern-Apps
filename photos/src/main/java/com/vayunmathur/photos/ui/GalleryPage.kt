@@ -1,27 +1,40 @@
 package com.vayunmathur.photos.ui
 
 import android.app.Activity
+import android.util.Log
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,10 +43,12 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
@@ -46,6 +61,7 @@ import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconDelete
+import com.vayunmathur.library.ui.IconSearch
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.NavBackStack
 import com.vayunmathur.library.util.buildDatabase
@@ -54,6 +70,7 @@ import com.vayunmathur.photos.NavigationBar
 import com.vayunmathur.photos.R
 import com.vayunmathur.photos.Route
 import com.vayunmathur.photos.data.Photo
+import com.vayunmathur.photos.data.PhotoDao
 import com.vayunmathur.photos.data.VaultDatabase
 import com.vayunmathur.photos.data.VaultPhoto
 import com.vayunmathur.photos.util.ImageLoader
@@ -66,6 +83,7 @@ import kotlinx.datetime.format.MonthNames
 import kotlinx.datetime.toLocalDateTime
 import kotlin.math.roundToInt
 import kotlin.time.Instant
+import com.vayunmathur.library.R as LibraryR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,11 +99,38 @@ fun GalleryPage(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var columnCount by rememberSaveable { mutableFloatStateOf(3f) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    val searchResults = remember(searchQuery, allPhotos) {
+        mutableStateListOf<Photo>()
+    }
+
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            val photoDao = viewModel.getDao<Photo>() as PhotoDao
+            val results = photoDao.searchPhotos("$searchQuery*")
+            Log.d("GalleryPage", "Search for '$searchQuery*' returned ${results.size} photos")
+            searchResults.clear()
+            searchResults.addAll(results)
+        }
+    }
+
+    val displayedPhotos by remember {
+        derivedStateOf {
+            if (searchQuery.isNotBlank()) searchResults else photos
+        }
+    }
 
     LaunchedEffect(Unit) {
         SyncWorker.runOnce(context)
         SyncWorker.enqueue(context)
     }
+
+    val photoDao = remember { viewModel.getDao<Photo>() as PhotoDao }
+    val ocrCount by photoDao.getOCRCountFlow().collectAsState(0)
+    val targetCount by photoDao.getOCRTargetCountFlow().collectAsState(0)
+    val ocrProgress by remember { derivedStateOf { if (targetCount > 0) ocrCount.toFloat() / targetCount else 1f } }
+    var showOCRDetails by remember { mutableStateOf(false) }
 
     val selectedIds = remember { mutableStateListOf<Long>() }
     val isSelectionMode by remember { derivedStateOf { selectedIds.isNotEmpty() } }
@@ -106,7 +151,7 @@ fun GalleryPage(
 
     val photosGroupedByMonth by remember {
         derivedStateOf {
-            photos.groupBy {
+            displayedPhotos.groupBy {
                 val date = Instant.fromEpochMilliseconds(it.date).toLocalDateTime(TimeZone.currentSystemDefault())
                 LocalDate(date.year, date.month, 1)
             }.toSortedMap(Comparator<LocalDate>(LocalDate::compareTo).reversed()).mapKeys {
@@ -192,6 +237,67 @@ fun GalleryPage(
                         }
                     }
                 )
+            } else {
+                SearchBar(
+                    inputField = {
+                        SearchBarDefaults.InputField(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = { isSearchActive = false },
+                            expanded = isSearchActive,
+                            onExpandedChange = { isSearchActive = it },
+                            placeholder = { Text(stringResource(R.string.search_photos)) },
+                            leadingIcon = { IconSearch() },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        IconClose()
+                                    }
+                                } else if (ocrProgress < 1f) {
+                                    Box(Modifier.padding(8.dp).clickable { showOCRDetails = true }) {
+                                        CircularProgressIndicator(
+                                            progress = { ocrProgress },
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
+                                }
+                            }
+                        )
+                    },
+                    expanded = isSearchActive,
+                    onExpandedChange = { isSearchActive = it },
+                    modifier = Modifier
+                        .padding(horizontal = if (isSearchActive) 0.dp else 16.dp)
+                        .padding(top = if (isSearchActive) 0.dp else 8.dp),
+                    content = {
+                        LazyVerticalGrid(
+                            GridCells.Fixed(columnCount.roundToInt().coerceIn(2, 8)),
+                            Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(searchResults, { it.id }, contentType = { "photo_thumbnail" }) { photo ->
+                                val isSelected = photo.id in selectedIds
+                                ImageLoader.SelectablePhotoItem(
+                                    photo = photo,
+                                    isSelected = isSelected,
+                                    isSelectionMode = isSelectionMode,
+                                    onToggleSelection = {
+                                        if (isSelected) selectedIds.remove(photo.id) else selectedIds.add(photo.id)
+                                    },
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            if (isSelected) selectedIds.remove(photo.id) else selectedIds.add(photo.id)
+                                        } else {
+                                            backStack.add(Route.PhotoPage(photo.id, null))
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                )
             }
         },
         bottomBar = { if (!isSelectionMode) NavigationBar(Route.Gallery, backStack) }
@@ -250,5 +356,33 @@ fun GalleryPage(
                 }
             }
         }
+    }
+
+    if (showOCRDetails) {
+        AlertDialog(
+            onDismissRequest = { showOCRDetails = false },
+            title = { Text(stringResource(R.string.indexing_photos)) },
+            text = {
+                Column(Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.indexing_progress_details, ocrCount, targetCount))
+                    Spacer(Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        progress = { ocrProgress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "${(ocrProgress * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.align(Alignment.End)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showOCRDetails = false }) {
+                    Text(stringResource(R.string.close))
+                }
+            }
+        )
     }
 }

@@ -26,7 +26,7 @@ data class VaultPhoto(
 @Dao
 interface VaultPhotoDao : TrueDao<VaultPhoto>
 
-@Database(entities = [VaultPhoto::class], version = 1)
+@Database(entities = [VaultPhoto::class], version = 1, exportSchema = false)
 abstract class VaultDatabase : RoomDatabase() {
     abstract fun vaultPhotoDao(): VaultPhotoDao
 }

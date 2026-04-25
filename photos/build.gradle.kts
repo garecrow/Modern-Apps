@@ -7,6 +7,11 @@ android {
     defaultConfig {
         applicationId = "com.vayunmathur.photos"
     }
+    packaging {
+        jniLibs {
+            pickFirsts.add("**/libc++_shared.so")
+        }
+    }
 }
 
 dependencies {
@@ -30,4 +35,5 @@ dependencies {
     implementation(libs.androidx.glance)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
+    implementation(libs.paddleocr4android)
 }

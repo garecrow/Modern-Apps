@@ -21,10 +21,8 @@ import androidx.work.ListenableWorker.Result as WorkResult
 import com.vayunmathur.library.util.DataStoreUtils
 import com.vayunmathur.library.util.buildDatabase
 import com.vayunmathur.library.util.getAll
-import com.vayunmathur.photos.data.MIGRATION_1_2
-import com.vayunmathur.photos.data.MIGRATION_2_3
-import com.vayunmathur.photos.data.MIGRATION_3_4
 import com.vayunmathur.photos.data.Photo
+import com.vayunmathur.photos.data.PhotoOCR
 import com.vayunmathur.photos.data.PhotoDatabase
 import com.vayunmathur.photos.data.VideoData
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +34,7 @@ import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): WorkResult = withContext(Dispatchers.IO) {
-        val database = applicationContext.buildDatabase<PhotoDatabase>(listOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4))
+        val database = applicationContext.buildDatabase<PhotoDatabase>(PhotoDatabase.ALL_MIGRATIONS)
         val dataStore = DataStoreUtils.getInstance(applicationContext)
         
         val triggeredUris = triggeredContentUris
@@ -51,6 +49,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         
         val photos = database.photoDao().getAll<Photo>()
         setExifData(photos, database, applicationContext)
+        runOCR(photos, database, applicationContext)
         
         dataStore.setLong("last_photos_generation", currentGeneration)
         
@@ -241,4 +240,41 @@ suspend fun setExifData(photos: List<Photo>, database: PhotoDatabase, context: C
         }.awaitAll()
         photoDao.upsertAll(newPhotos)
     }
+}
+
+suspend fun runOCR(photos: List<Photo>, database: PhotoDatabase, context: Context) = coroutineScope {
+    val photoDao = database.photoDao()
+    // Find photos that don't have OCR yet
+    // Since it's FTS4, we might want to optimize this, but for now we'll just check existence
+    // Actually, we can get all photoIds from PhotoOCR and filter
+    val ocrIds = database.query(SimpleSQLiteQuery("SELECT rowid FROM PhotoOCR"), null).use { cursor ->
+        val ids = mutableSetOf<Long>()
+        while (cursor.moveToNext()) {
+            ids.add(cursor.getLong(0))
+        }
+        ids
+    }
+
+    val ps = photos.filter { it.id !in ocrIds && it.videoData == null }.sortedByDescending { it.date }
+    if (ps.isEmpty()) return@coroutineScope
+
+    val ocrManager = OCRManager(context)
+    ocrManager.init()
+
+    ps.forEach { photo ->
+        try {
+            context.contentResolver.openInputStream(photo.uri.toUri())?.use { inputStream ->
+                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                if (bitmap != null) {
+                    val text = ocrManager.runOCR(bitmap)
+                    if (text != null && text.isNotBlank()) {
+                        photoDao.upsertOCR(PhotoOCR(photo.id, text))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SyncWorker", "Error running OCR for photo ${photo.id}", e)
+        }
+    }
+    ocrManager.release()
 }

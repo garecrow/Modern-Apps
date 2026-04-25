@@ -20,8 +20,6 @@ import com.vayunmathur.library.util.NavKey
 import com.vayunmathur.library.util.buildDatabase
 import com.vayunmathur.library.util.rememberNavBackStack
 import com.vayunmathur.photos.data.DrawingTool
-import com.vayunmathur.photos.data.MIGRATION_1_2
-import com.vayunmathur.photos.data.MIGRATION_2_3
 import com.vayunmathur.photos.data.Photo
 import com.vayunmathur.photos.data.PhotoDatabase
 import kotlinx.serialization.Serializable
@@ -31,7 +29,7 @@ class EditActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val db = buildDatabase<PhotoDatabase>(listOf(MIGRATION_1_2, MIGRATION_2_3))
+        val db = buildDatabase<PhotoDatabase>(PhotoDatabase.ALL_MIGRATIONS)
         val viewModel = DatabaseViewModel(db, Photo::class to db.photoDao())
 
         setContent {

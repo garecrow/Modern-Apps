@@ -21,4 +21,8 @@
     <string name="date_format">%1$d %2$s %3$d</string>
     <string name="grant_image_video_permissions">Grant Image/Video Permissions</string>
     <string name="grant_storage_permission">Grant Storage Permission</string>
+    <string name="search_photos">Search photos&#8230;</string>
+    <string name="indexing_photos">Indexing Photos</string>
+    <string name="indexing_progress_details">%1$d of %2$d photos processed</string>
+    <string name="close">Close</string>
 </resources>

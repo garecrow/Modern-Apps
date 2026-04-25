@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import androidx.core.content.IntentCompat
 import kotlin.reflect.KClass
 
 abstract class AssistantIntent<Input: Any, Output: Any>(val inputSerializer: KSerializer<Input>, val outputSerializer: KSerializer<Output>): Activity() {
@@ -46,7 +47,7 @@ abstract class AssistantIntent<Input: Any, Output: Any>(val inputSerializer: KSe
         setResult(RESULT_OK, responseIntent)
 
         // Also send to ResultReceiver if present (useful for Services)
-        val receiver = intent.getParcelableExtra<ResultReceiver>("RECEIVER")
+        val receiver = IntentCompat.getParcelableExtra(intent, "RECEIVER", ResultReceiver::class.java)
         receiver?.send(RESULT_OK, Bundle().apply {
             putString("RESPONSE_DATA", responseData)
         })
