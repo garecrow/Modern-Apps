@@ -62,5 +62,4 @@ body:
     id: logs
     attributes:
       label: Log Files
-      description: If the app crashed, please paste the log files here.
-      render: shell
+      description: If the app crashed, please paste the log files here, or upload a log file
