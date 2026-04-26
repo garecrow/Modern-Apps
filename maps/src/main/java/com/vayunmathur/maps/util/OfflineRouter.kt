@@ -11,6 +11,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
+import com.vayunmathur.maps.R
 
 object OfflineRouter {
     init {

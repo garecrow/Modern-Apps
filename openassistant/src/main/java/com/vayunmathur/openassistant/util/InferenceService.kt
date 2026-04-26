@@ -26,8 +26,9 @@ import com.vayunmathur.openassistant.data.Message
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-
+import com.vayunmathur.openassistant.R
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.selects.select
 
 class InferenceService : Service() {
 
@@ -40,7 +41,8 @@ class InferenceService : Service() {
             val userText: String,
             val imagePaths: Array<String>,
             val schema: String,
-            val receiver: ResultReceiver
+            val receiver: ResultReceiver,
+            val enqueuedTime: Long = System.currentTimeMillis()
         ) : InferenceJob()
 
         data class Standard(
@@ -52,7 +54,8 @@ class InferenceService : Service() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val jobQueue = Channel<InferenceJob>(Channel.UNLIMITED)
+    private val standardQueue = Channel<InferenceJob.Standard>(Channel.UNLIMITED)
+    private val intentQueue = Channel<InferenceJob.Intent>(Channel.UNLIMITED)
     
     private var engine: Engine? = null
     private var currentConversation: com.google.ai.edge.litertlm.Conversation? = null
@@ -68,11 +71,42 @@ class InferenceService : Service() {
         startForegroundTask()
         serviceScope.launch {
             Log.d("InferenceService", "Starting job queue processor loop")
-            for (job in jobQueue) {
+            while (isActive) {
                 try {
-                    when (job) {
-                        is InferenceJob.Intent -> executeIntentInference(job)
-                        is InferenceJob.Standard -> executeStandardInference(job)
+                    // Prioritize standardQueue
+                    val standardJob = standardQueue.tryReceive().getOrNull()
+                    if (standardJob != null) {
+                        executeStandardInference(standardJob)
+                        continue
+                    }
+
+                    // Check intentQueue if standardQueue is empty
+                    val intentJob = intentQueue.tryReceive().getOrNull()
+                    if (intentJob != null) {
+                        val now = System.currentTimeMillis()
+                        if (now - intentJob.enqueuedTime > 45000) {
+                            Log.w("InferenceService", "Intent job expired in queue, discarding.")
+                            intentJob.receiver.send(-1, Bundle().apply { putString("error", "Request expired in queue") })
+                        } else {
+                            executeIntentInference(intentJob)
+                        }
+                        continue
+                    }
+
+                    // If both empty, wait for either (with priority to standard)
+                    select<Unit> {
+                        standardQueue.onReceive { job: InferenceJob.Standard ->
+                            executeStandardInference(job)
+                        }
+                        intentQueue.onReceive { job: InferenceJob.Intent ->
+                            val now = System.currentTimeMillis()
+                            if (now - job.enqueuedTime > 45000) {
+                                Log.w("InferenceService", "Intent job expired in queue, discarding.")
+                                job.receiver.send(-1, Bundle().apply { putString("error", "Request expired in queue") })
+                            } else {
+                                executeIntentInference(job)
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("InferenceService", "Critical error in job processor loop", e)
@@ -100,10 +134,10 @@ class InferenceService : Service() {
 
         if (receiver != null && schema != null) {
             Log.i("InferenceService", "Queueing Intent Inference request")
-            jobQueue.trySend(InferenceJob.Intent(userText, imagePaths, schema, receiver))
+            intentQueue.trySend(InferenceJob.Intent(userText, imagePaths, schema, receiver))
         } else if (conversationId != -1L) {
             Log.d("InferenceService", "Queueing standard inference for conversation: $conversationId")
-            jobQueue.trySend(InferenceJob.Standard(conversationId, userText, imagePaths, audioPath))
+            standardQueue.trySend(InferenceJob.Standard(conversationId, userText, imagePaths, audioPath))
         }
 
         return START_STICKY
@@ -289,7 +323,6 @@ class InferenceService : Service() {
             visionBackend = Backend.GPU(),
             audioBackend = Backend.CPU(), 
             cacheDir = applicationContext.cacheDir.absolutePath,
-            maxNumTokens = 512,
         )
         
         val newEngine = Engine(config)
