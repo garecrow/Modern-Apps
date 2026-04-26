@@ -42,6 +42,7 @@ import com.vayunmathur.library.ui.IconAdd
 import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconMenu
 import com.vayunmathur.library.ui.BackupButtons
+import com.vayunmathur.library.ui.IconDelete
 import com.vayunmathur.library.util.BiometricDatabaseHelper
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.openassistant.util.copyUriToFile
@@ -104,18 +105,32 @@ fun LiteRTChatUi(backStack: NavBackStack<Route>, conversationId: Long, viewModel
 
     val adaptiveInfo = currentWindowAdaptiveInfo()
     val navType = if (adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WIDTH_DP_EXPANDED_LOWER_BOUND)) {
-        NavigationSuiteType.WideNavigationRailExpanded
+        NavigationSuiteType.NavigationDrawer
     } else NavigationSuiteType.None
 
     val allConversations by viewModel.data<Conversation>().collectAsState(initial = emptyList())
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
+    LaunchedEffect(allConversations) {
+        if(allConversations.isEmpty()) {
+            drawerState.close()
+        }
+    }
+
     NavigationSuiteScaffold(layoutType = navType, navigationSuiteItems = {
-        allConversations.forEach { item(it.id == conversationId, { backStack.reset(Route.ConversationPage(it.id)) }, {}, label = { Text(it.title, Modifier.fillMaxWidth()) }) }
+        allConversations.forEach { item(it.id == conversationId, { backStack.reset(Route.ConversationPage(it.id)) }, {}, label = { Text(it.title, Modifier.fillMaxWidth()) }, badge = {
+            IconButton({viewModel.delete(it)}) {
+                IconDelete()
+            }
+        }) }
     }) {
         ModalNavigationDrawer({
             ModalDrawerSheet {
-                allConversations.forEach { NavigationDrawerItem({ Text(it.title) }, it.id == conversationId, { backStack.reset(Route.ConversationPage(it.id)) }, Modifier.fillMaxWidth()) }
+                allConversations.forEach { NavigationDrawerItem({ Text(it.title) }, it.id == conversationId, { backStack.reset(Route.ConversationPage(it.id)) }, Modifier.fillMaxWidth(), icon = {}, badge = {
+                    IconButton({viewModel.delete(it)}, Modifier.offset(x=15.dp)) {
+                        IconDelete()
+                    }
+                }) }
             }
         }, drawerState = drawerState) {
             Scaffold(
@@ -132,7 +147,7 @@ fun LiteRTChatUi(backStack: NavBackStack<Route>, conversationId: Long, viewModel
                             )
                             if (conversationId != 0L) IconButton({ backStack.reset(Route.ConversationPage(0)) }) { IconAdd() }
                         },
-                        navigationIcon = { if (navType == NavigationSuiteType.None) IconButton({ scope.launch { drawerState.open() } }) { IconMenu() } }
+                        navigationIcon = { if (navType == NavigationSuiteType.None && allConversations.isNotEmpty()) IconButton({ scope.launch { drawerState.open() } }) { IconMenu() } }
                     )
                 },
                 bottomBar = {
