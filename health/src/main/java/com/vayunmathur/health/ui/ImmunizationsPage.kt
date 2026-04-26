@@ -214,7 +214,7 @@ fun ImmunizationCard(immunization: Immunization) {
                 }
                 
                 if (immunization.lotNumber?.value != null) {
-                    Text(stringResource(R.string.lot_format, immunization.lotNumber!!.value), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.lot_format, immunization.lotNumber!!.value!!), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
