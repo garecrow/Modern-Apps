@@ -257,6 +257,7 @@ fun TokenCard(token: Token, onClick: () -> Unit = {}) {
                 Text(text = token.tokenInfo.name, fontWeight = FontWeight.Bold)
                 when(token.tokenInfo.category) {
                     TokenInfo.Companion.Category.NORMAL, TokenInfo.Companion.Category.XSTOCK -> {
+                        val tpr = TokenPriceRepository[token.tokenInfo] ?: return@Column
                         val priceStr = tpr.price.round(2)
                         val changeStr = tpr.change.round(2)
                         Text(
