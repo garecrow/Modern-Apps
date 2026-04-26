@@ -177,7 +177,7 @@ class InferenceService : Service() {
             Log.e("InferenceService", "Error during standard inference", e)
             upsertMessageToDb(Message(
                 conversationId = job.conversationId,
-                text = "Error: ${e.localizedMessage}",
+                text = getString(R.string.error_prefix, e.localizedMessage ?: ""),
                 role = "assistant",
                 timestamp = Clock.System.now().toEpochMilliseconds()
             ))
@@ -347,7 +347,7 @@ class InferenceService : Service() {
         val stream = conv.sendMessageAsync(com.google.ai.edge.litertlm.Message.user(Contents.of(contents)))
 
         stream.catch { e ->
-            updateMessageInDb(aiMsgId, "Error: ${e.message}")
+            updateMessageInDb(aiMsgId, getString(R.string.error_prefix, e.message ?: ""))
         }.collect { chunk ->
             val chunkText = chunk.contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
             fullResponseText += chunkText
