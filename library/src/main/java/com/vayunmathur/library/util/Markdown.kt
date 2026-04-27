@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextGeometricTransform
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.sp
 
 /**
@@ -19,11 +20,61 @@ import androidx.compose.ui.unit.sp
  * @param showMarkers If false, the formatting symbols (#, *, etc.) are hidden and occupy no space.
  */
 fun parseMarkdown(mdtext: String, showMarkers: Boolean = true): AnnotatedString {
-    return buildAnnotatedString {
-        append(mdtext)
+    // 1. Preprocess text for newline rules and list normalization
+    val lines = mdtext.lines()
+    val processedText = buildString {
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            
+            // Rule: 2+ newlines always becomes 1 newline for anything.
+            // Since we append \n after every processed block, skipping blank lines
+            // effectively reduces 2+ newlines to the 1 newline from the previous block.
+            if (line.isBlank()) {
+                while (i + 1 < lines.size && lines[i + 1].isBlank()) i++
+                i++; continue
+            }
 
-        // Helper to hide formatting markers if showMarkers is false.
-        // We use TextGeometricTransform with scaleX = 0f to collapse the horizontal width.
+            val trimmed = line.trimStart()
+            val listMatch = Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(line)
+            val isCurrentSpecial = trimmed.startsWith("#") || trimmed.startsWith(">") || listMatch != null
+
+            if (isCurrentSpecial) {
+                if (listMatch != null) {
+                    val rawIndent = listMatch.groups[1]!!.value
+                    val level = rawIndent.length / 2
+                    val normalizedIndent = "  ".repeat(level)
+                    val marker = listMatch.groups[2]!!.value
+                    val rest = listMatch.groups[3]!!.value
+                    val newMarker = if (marker.length == 1 && "*+-".contains(marker)) "•" else marker
+                    append("$normalizedIndent$newMarker ${rest.trimStart()}\n")
+                } else {
+                    append(line.trimEnd() + "\n")
+                }
+            } else {
+                // Regular text: Rule: 1 newline becomes 0 newlines only when both lines are not headers or bullets
+                var merged = line.trim()
+                while (i + 1 < lines.size && lines[i + 1].isNotBlank()) {
+                    val nextLine = lines[i + 1]
+                    val nextTrimmed = nextLine.trimStart()
+                    val nextListMatch = Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine)
+                    val isNextSpecial = nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null
+                    
+                    if (isNextSpecial) break // Newline preserved if next line is special
+                    
+                    merged += " " + nextLine.trim()
+                    i++
+                }
+                append(merged + "\n")
+            }
+            i++
+        }
+    }.trim()
+
+    return buildAnnotatedString {
+        append(processedText)
+
+        // Helper to hide formatting markers
         fun hideRange(start: Int, end: Int) {
             if (!showMarkers && start < end) {
                 addStyle(
@@ -38,129 +89,116 @@ fun parseMarkdown(mdtext: String, showMarkers: Boolean = true): AnnotatedString 
             }
         }
 
-        // 1. Headers (e.g., # Heading)
+        // 1. Headers
         val headerRegex = Regex("(?m)^(#{1,6} )(.*(?:\\R|$))")
-        headerRegex.findAll(mdtext).forEach { match ->
+        headerRegex.findAll(processedText).forEach { match ->
             val start = match.range.first
             val end = match.range.last + 1
-
-            val markers = match.groups[1]!! // The "### " part
-            val content = match.groups[2]!! // The text + newline
-
+            val markers = match.groups[1]!!
             val level = markers.value.trim().length
             val fontSize = (32 - (level * 2)).sp
 
-            // Hide the hashes and the space if requested
             hideRange(markers.range.first, markers.range.last + 1)
 
-            // SpanStyle for the text content
+            addStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = fontSize), start, end)
             addStyle(
-                style = SpanStyle(
+                ParagraphStyle(
+                    lineHeight = fontSize * 1.3f,
+                    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+                ),
+                start,
+                end
+            )
+        }
+
+        // 2. Lists
+        val listRegex = Regex("(?m)^(\\s*)([•*+-]|\\d+[.)])\\s+(?:\\[([ xX])]\\s+)?(.*(?:\\R|$))")
+        listRegex.findAll(processedText).forEach { match ->
+            val start = match.range.first
+            val end = match.range.last + 1
+            val indentation = match.groups[1]!!.value
+            val markerString = match.groups[2]!!.value
+            val taskStatus = match.groups[3]?.value
+            val contentStart = match.groups[4]!!.range.first
+
+            if (!showMarkers) {
+                hideRange(match.groups[1]!!.range.first, match.groups[1]!!.range.last + 1)
+                if (taskStatus != null) {
+                    val taskMarkerStart = processedText.indexOf('[', start)
+                    val taskMarkerEnd = processedText.indexOf(']', taskMarkerStart) + 1
+                    hideRange(taskMarkerStart, taskMarkerEnd)
+                }
+            }
+
+            val level = indentation.length / 2
+            val indentBase = 12.sp
+            val indentStep = 24.sp
+            val firstLineIndent = (indentBase.value + (level * indentStep.value)).sp
+            val markerOffset = if (markerString.any { it.isDigit() }) 32.sp else 16.sp
+
+            addStyle(
+                ParagraphStyle(
+                    textIndent = TextIndent(firstLine = firstLineIndent, restLine = (firstLineIndent.value + markerOffset.value).sp)
+                ),
+                start,
+                end
+            )
+
+            addStyle(
+                SpanStyle(
+                    color = if (showMarkers) Color.Gray else Color.Unspecified,
                     fontWeight = FontWeight.Bold,
-                    fontSize = fontSize,
+                    fontSize = if (markerString == "•") 18.sp else 16.sp
                 ),
-                start = start,
-                end = end
+                start,
+                contentStart
             )
 
-            // ParagraphStyle for spacing (using 0.6f multiplier as requested)
+            if (taskStatus != null && taskStatus.lowercase() == "x") {
+                addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough, color = Color.Gray), contentStart, end)
+            }
+        }
+
+        // 3. Inline Formatting (Post-processing)
+        
+        // Bold
+        Regex("(\\*\\*|__)(.*?)\\1").findAll(processedText).forEach { match ->
+            val m = match.groups[1]!!.value
+            hideRange(match.range.first, match.range.first + m.length)
+            hideRange(match.range.last + 1 - m.length, match.range.last + 1)
+            addStyle(SpanStyle(fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
+        }
+
+        // Italic
+        Regex("(?<!\\*)\\*(?!\\*)(.*?)(?<!\\*)\\*(?!\\*)|(?<!_)_(?!_)(.*?)(?<!_)_(?!_)").findAll(processedText).forEach { match ->
+            hideRange(match.range.first, match.range.first + 1)
+            hideRange(match.range.last, match.range.last + 1)
+            addStyle(SpanStyle(fontStyle = FontStyle.Italic), match.range.first, match.range.last + 1)
+        }
+
+        // Code
+        Regex("`(.+?)`").findAll(processedText).forEach { match ->
+            hideRange(match.range.first, match.range.first + 1)
+            hideRange(match.range.last, match.range.last + 1)
             addStyle(
-                style = ParagraphStyle(
-                    lineHeight = fontSize * 0.6f,
-                    lineHeightStyle = LineHeightStyle(
-                        alignment = LineHeightStyle.Alignment.Center,
-                        trim = LineHeightStyle.Trim.None
-                    )
-                ),
-                start = start,
-                end = end
+                SpanStyle(fontFamily = FontFamily.Monospace, background = Color.LightGray.copy(0.2f), color = Color(0xFFD32F2F)),
+                match.range.first,
+                match.range.last + 1
             )
         }
 
-        // 2. Bold (**text** or __text__)
-        val boldRegex = Regex("(\\*\\*|__)(.*?)\\1")
-        boldRegex.findAll(mdtext).forEach { match ->
-            val markerType = match.groups[1]!!.value
-            val start = match.range.first
-            val end = match.range.last + 1
-
-            hideRange(start, start + markerType.length)
-            hideRange(end - markerType.length, end)
-
-            addStyle(
-                style = SpanStyle(fontWeight = FontWeight.Bold),
-                start = start,
-                end = end
-            )
+        // Strikethrough
+        Regex("~~(.+?)~~").findAll(processedText).forEach { match ->
+            hideRange(match.range.first, match.range.first + 2)
+            hideRange(match.range.last - 1, match.range.last + 1)
+            addStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), match.range.first, match.range.last + 1)
         }
 
-        // 3. Italic (*text* or _text_)
-        val italicRegex = Regex("(?<!\\*)\\*(?!\\*)(.*?)(?<!\\*)\\*(?!\\*)|(?<!_)_(?!_)(.*?)(?<!_)_(?!_)")
-        italicRegex.findAll(mdtext).forEach { match ->
-            val start = match.range.first
-            val end = match.range.last + 1
-
-            hideRange(start, start + 1)
-            hideRange(end - 1, end)
-
-            addStyle(
-                style = SpanStyle(fontStyle = FontStyle.Italic),
-                start = start,
-                end = end
-            )
-        }
-
-        // 4. Inline Code (`code`)
-        val codeRegex = Regex("`(.+?)`")
-        codeRegex.findAll(mdtext).forEach { match ->
-            val start = match.range.first
-            val end = match.range.last + 1
-
-            hideRange(start, start + 1)
-            hideRange(end - 1, end)
-
-            addStyle(
-                style = SpanStyle(
-                    fontFamily = FontFamily.Monospace,
-                    background = Color.LightGray.copy(alpha = 0.2f),
-                    color = Color(0xFFD32F2F)
-                ),
-                start = start,
-                end = end
-            )
-        }
-
-        // 5. Strikethrough (~~text~~)
-        val strikeRegex = Regex("~~(.+?)~~")
-        strikeRegex.findAll(mdtext).forEach { match ->
-            val start = match.range.first
-            val end = match.range.last + 1
-
-            hideRange(start, start + 2)
-            hideRange(end - 2, end)
-
-            addStyle(
-                style = SpanStyle(textDecoration = TextDecoration.LineThrough),
-                start = start,
-                end = end
-            )
-        }
-
-        // 6. Blockquotes
-        val quoteRegex = Regex("(?m)^>\\s")
-        quoteRegex.findAll(mdtext).forEach { match ->
+        // Blockquotes
+        Regex("(?m)^>\\s").findAll(processedText).forEach { match ->
             hideRange(match.range.first, match.range.last + 1)
-
-            val lineEnd = mdtext.indexOf('\n', match.range.first).let { if (it == -1) mdtext.length else it }
-
-            addStyle(
-                style = SpanStyle(
-                    color = Color.Gray,
-                    fontStyle = FontStyle.Italic
-                ),
-                start = match.range.first,
-                end = lineEnd
-            )
+            val lineEnd = processedText.indexOf('\n', match.range.first).let { if (it == -1) processedText.length else it }
+            addStyle(SpanStyle(color = Color.Gray, fontStyle = FontStyle.Italic), match.range.first, lineEnd)
         }
     }
 }
