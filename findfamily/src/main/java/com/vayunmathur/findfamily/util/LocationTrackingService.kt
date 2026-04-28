@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.time.Clock
@@ -188,20 +189,26 @@ class LocationTrackingService : Service() {
     }
 
     private fun startTracking() {
-        val db = buildDatabase<FFDatabase>(listOf(Migration_1_2, Migration_2_3))
-        viewModel = DatabaseViewModel(db,
-            User::class to db.userDao(),
-            Waypoint::class to db.waypointDao(),
-            LocationValue::class to db.locationValueDao(),
-            TemporaryLink::class to db.temporaryLinkDao()
-        )
-        users = viewModel.data<User>()
-        waypoints = viewModel.data<Waypoint>()
-        temporaryLinks = viewModel.data<TemporaryLink>()
         CoroutineScope(Dispatchers.IO).launch {
+            val db = buildDatabase<FFDatabase>(listOf(Migration_1_2, Migration_2_3))
+            viewModel = DatabaseViewModel(db,
+                User::class to db.userDao(),
+                Waypoint::class to db.waypointDao(),
+                LocationValue::class to db.locationValueDao(),
+                TemporaryLink::class to db.temporaryLinkDao()
+            )
+            users = viewModel.data<User>()
+            waypoints = viewModel.data<Waypoint>()
+            temporaryLinks = viewModel.data<TemporaryLink>()
             Networking.init(viewModel, DataStoreUtils.getInstance(this@LocationTrackingService))
+            
+            withContext(Dispatchers.Main) {
+                setupLocationUpdates()
+            }
         }
+    }
 
+    private fun setupLocationUpdates() {
         bm = getSystemService(BATTERY_SERVICE) as BatteryManager
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
 

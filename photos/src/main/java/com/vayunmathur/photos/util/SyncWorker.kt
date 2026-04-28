@@ -133,6 +133,10 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 class OCRWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): WorkResult = withContext(Dispatchers.IO) {
+        val dataStore = DataStoreUtils.getInstance(applicationContext)
+        if (!dataStore.getBoolean("image_understanding_enabled", false)) {
+            return@withContext WorkResult.success()
+        }
         ocrMutex.withLock {
             setForeground(createForegroundInfo())
             val database =
@@ -339,6 +343,7 @@ suspend fun setExifData(photos: List<Photo>, database: PhotoDatabase, context: C
 
 suspend fun runOCR(photos: List<Photo>, database: PhotoDatabase, context: Context) = coroutineScope {
     val photoDao = database.photoDao()
+    val dataStore = DataStoreUtils.getInstance(context)
     // Find photos that don't have OCR yet
     // Since it's FTS4, we might want to optimize this, but for now we'll just check existence
     // Actually, we can get all photoIds from PhotoOCR and filter
@@ -358,6 +363,7 @@ suspend fun runOCR(photos: List<Photo>, database: PhotoDatabase, context: Contex
 
     ps.forEach { photo ->
         ensureActive()
+        if (!dataStore.getBoolean("image_understanding_enabled", false)) return@forEach
 
         // Double check if another thread/worker finished this photo while we were waiting
         val alreadyExists = database.query(SimpleSQLiteQuery("SELECT EXISTS(SELECT 1 FROM PhotoOCR WHERE rowid = ${photo.id})"), null).use { cursor ->

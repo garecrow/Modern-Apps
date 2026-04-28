@@ -23,6 +23,9 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.coroutines.resume
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+
 class OCRManager(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -51,10 +54,10 @@ class OCRManager(private val context: Context) {
         return null
     }
 
-    private suspend fun performInference(uri: Uri): String? {
-        val tempFile = resizeImage(uri) ?: return "ERROR"
+    private suspend fun performInference(uri: Uri): String? = withContext(Dispatchers.IO) {
+        val tempFile = resizeImage(uri) ?: return@withContext "ERROR"
         
-        return try {
+        try {
             val contentUri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
