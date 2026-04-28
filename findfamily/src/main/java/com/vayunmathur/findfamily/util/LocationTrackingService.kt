@@ -74,6 +74,7 @@ class LocationTrackingService : Service() {
         )
         println(locationValue)
         CoroutineScope(Dispatchers.IO).launch {
+            viewModel.upsertAsync(locationValue)
             Networking.ensureUserExists()
             println(users)
             users.forEach { user ->
@@ -187,17 +188,31 @@ class LocationTrackingService : Service() {
 
         bm = getSystemService(BATTERY_SERVICE) as BatteryManager
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+        val dataStore = DataStoreUtils.getInstance(this@LocationTrackingService)
+        val useGpsOnly = dataStore.getBoolean("useGpsOnly", false)
 
-        try {
-            // Request GPS updates
-            locationManager.requestLocationUpdates(
-                LocationManager.NETWORK_PROVIDER,
-                10_000L, // 30 seconds
-                0f,   // regardless of movement
-                locationListener
-            )
-        } catch (_: SecurityException) {
-            // Handle missing permissions
+        if (useGpsOnly) {
+            try {
+                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    locationManager.requestLocationUpdates(
+                        LocationManager.GPS_PROVIDER,
+                        10_000L,
+                        0f,
+                        locationListener
+                    )
+                }
+            } catch (_: SecurityException) {
+            }
+        } else {
+            try {
+                locationManager.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    10_000L,
+                    0f,
+                    locationListener
+                )
+            } catch (_: SecurityException) {
+            }
         }
     }
 

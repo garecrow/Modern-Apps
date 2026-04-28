@@ -70,6 +70,7 @@ import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconCopy
 import com.vayunmathur.library.ui.IconDelete
 import com.vayunmathur.library.ui.IconEdit
+import com.vayunmathur.library.ui.IconSettings
 import com.vayunmathur.library.ui.BackupButtons
 import com.vayunmathur.library.util.BiometricDatabaseHelper
 import com.vayunmathur.library.util.DatabaseViewModel
@@ -116,6 +117,9 @@ fun MainPage(platform: Platform, backStack: NavBackStack<Route>, viewModel: Data
                         dbConfigs = listOf("passwords-db" to pass),
                         extraFiles = emptyList()
                     )
+                    IconButton(onClick = { backStack.add(Route.Settings) }) {
+                        IconSettings()
+                    }
                 }
             )
         },

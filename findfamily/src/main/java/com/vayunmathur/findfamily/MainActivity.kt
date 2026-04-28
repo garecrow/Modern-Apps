@@ -52,6 +52,7 @@ import com.vayunmathur.findfamily.ui.UserPage
 import com.vayunmathur.findfamily.ui.WaypointEditPage
 import com.vayunmathur.findfamily.ui.dialogs.AddLinkDialog
 import com.vayunmathur.findfamily.ui.dialogs.AddPersonDialog
+import com.vayunmathur.findfamily.ui.SettingsPage
 import com.vayunmathur.library.ui.DynamicTheme
 import com.vayunmathur.library.ui.dialog.DatePickerDialog
 import com.vayunmathur.library.util.DatabaseViewModel
@@ -258,6 +259,9 @@ sealed interface Route: NavKey {
 
     @Serializable
     data object MissingFeaturesDialog: Route
+
+    @Serializable
+    data object Settings: Route
 }
 
 @Composable
@@ -292,6 +296,9 @@ fun Navigation(platform: Platform, viewModel: DatabaseViewModel, showMissingFeat
         }
         entry<Route.MissingFeaturesDialog>(metadata = DialogPage()) {
             MissingFeaturesDialog(backStack)
+        }
+        entry<Route.Settings> {
+            SettingsPage(backStack, viewModel)
         }
     }
 }
