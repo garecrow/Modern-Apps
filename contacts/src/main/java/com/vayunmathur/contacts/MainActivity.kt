@@ -143,6 +143,14 @@ fun NoPermissionsScreen(permissions: Array<String>, setHasPermissions: (Boolean)
 @Composable
 fun Navigation(viewModel: ContactViewModel, initialRoute: Route? = null) {
     val backStack = rememberNavBackStack<Route>(listOfNotNull(Route.ContactsList, initialRoute).distinct())
+    val isCalendarSyncEnabled by viewModel.isCalendarSyncEnabled.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(isCalendarSyncEnabled) {
+        if (isCalendarSyncEnabled) {
+            com.vayunmathur.contacts.util.CalendarWorker.schedule(context)
+        }
+    }
 
     MainNavigation(backStack) {
         entry<Route.ContactsList>(metadata = ListPage {

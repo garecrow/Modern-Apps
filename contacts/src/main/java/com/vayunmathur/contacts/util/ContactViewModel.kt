@@ -37,9 +37,29 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
     private val _accounts = MutableStateFlow<List<ContactAccount>>(emptyList())
     val accounts: StateFlow<List<ContactAccount>> = _accounts.asStateFlow()
 
+    val isCalendarSyncEnabled: StateFlow<Boolean> = dataStore.booleanFlow("calendar_sync_enabled")
+        .stateIn(viewModelScope, SharingStarted.Eagerly, dataStore.getBoolean("calendar_sync_enabled", false))
+
     init {
         loadContacts()
         loadAccounts()
+    }
+
+    fun setCalendarSyncEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.setBoolean("calendar_sync_enabled", enabled)
+            if (enabled) {
+                withContext(Dispatchers.IO) {
+                    CalendarSyncHelper.syncAll(getApplication())
+                }
+                CalendarWorker.schedule(getApplication())
+            } else {
+                withContext(Dispatchers.IO) {
+                    CalendarSyncHelper.removeCalendar(getApplication())
+                }
+                CalendarWorker.cancel(getApplication())
+            }
+        }
     }
 
     fun loadContacts() {
@@ -116,6 +136,9 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
     fun deleteContact(contact: Contact) {
         viewModelScope.launch(Dispatchers.IO) {
             Contact.delete(getApplication(), contact)
+            if (isCalendarSyncEnabled.value) {
+                CalendarSyncHelper.syncContact(getApplication(), contact.copy(details = contact.details.copy(dates = emptyList())))
+            }
             _contacts.value = _contacts.value.filter { it.id != contact.id }
         }
     }
@@ -135,6 +158,11 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
                         newList[index] = updatedContact
                         _contacts.value = newList
                     }
+                    if (isCalendarSyncEnabled.value) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            CalendarSyncHelper.syncContact(getApplication(), updatedContact)
+                        }
+                    }
                 }
             }
         }
@@ -148,7 +176,15 @@ class ContactViewModel(application: Application) : AndroidViewModel(application)
             contact.save(getApplication(), details, oldDetails)
 
             if (contactId == 0L) {
-                loadContacts()
+                // For new contacts, we need to reload to get the new ID before syncing calendar
+                val loaded = Contact.getAllContacts(getApplication())
+                _contacts.value = loaded
+                
+                if (isCalendarSyncEnabled.value) {
+                    // Try to find the newly created contact (closest name match or just sync all if unsure)
+                    // Syncing all is safer for new contacts to ensure nothing was missed
+                    CalendarSyncHelper.syncAll(getApplication())
+                }
             } else {
                 loadContact(contactId)
             }

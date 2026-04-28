@@ -61,4 +61,10 @@
     <string name="action_call">Call</string>
     <string name="action_message">Message</string>
     <string name="action_video">Video</string>
+    <string name="calendar_sync">Calendar Sync</string>
+    <string name="sync_contacts_calendar">Show birthdays in calendar</string>
+    <string name="contacts_calendar_name">Contacts</string>
+    <string name="anniversary">Anniversary</string>
+    <string name="backup_and_export">Backup and Export</string>
+    <string name="grant_calendar_permissions">Grant calendar permissions</string>
 </resources>

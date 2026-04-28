@@ -11,4 +11,5 @@ android {
 dependencies {
     // External Libraries
     implementation(libs.libphonenumber)
+    implementation(libs.androidx.work.runtime.ktx)
 }

@@ -4,8 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.ContactsContract
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -42,32 +40,27 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.vayunmathur.library.util.NavBackStack
+import com.vayunmathur.contacts.R
+import com.vayunmathur.contacts.Route
 import com.vayunmathur.contacts.data.CDKEmail
 import com.vayunmathur.contacts.data.CDKPhone
 import com.vayunmathur.contacts.data.CDKStructuredPostal
 import com.vayunmathur.contacts.data.Contact
 import com.vayunmathur.contacts.util.ContactViewModel
-import com.vayunmathur.contacts.R
-import com.vayunmathur.contacts.Route
-import com.vayunmathur.contacts.util.VcfUtils
 import com.vayunmathur.library.ui.IconAdd
 import com.vayunmathur.library.ui.IconSettings
+import com.vayunmathur.library.util.NavBackStack
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okio.sink
 import kotlin.io.encoding.Base64
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,27 +85,6 @@ fun ContactList(
             .toSortedMap()
     }
 
-
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/vcard"),
-        onResult = { uri ->
-            uri?.let {
-                coroutineScope.launch {
-                    try {
-                        context.contentResolver.openOutputStream(it)?.sink()?.use { outputStream ->
-                            VcfUtils.exportContacts(contacts, outputStream)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            }
-        }
-    )
-
     val selectedID = when(backStack.last()) {
         is Route.ContactDetail -> (backStack.last() as Route.ContactDetail).contactId
         is Route.EditContact -> (backStack.last() as Route.EditContact).contactId
@@ -124,13 +96,6 @@ fun ContactList(
             TopAppBar({Text(stringResource(R.string.app_name))}, actions = {
                 IconButton(onClick = { backStack.add(Route.Settings) }) {
                     IconSettings()
-                }
-                IconButton(onClick = {
-                    exportLauncher.launch("contacts.vcf")
-                }) {
-                    Icon(painterResource(R.drawable.download_24px),
-                        contentDescription = stringResource(R.string.export_contacts)
-                    )
                 }
             })
         },
