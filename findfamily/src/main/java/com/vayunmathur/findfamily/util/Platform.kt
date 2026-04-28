@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.ContactsContract
+import android.provider.ContactsPickerSessionContract
+import android.provider.ContactsPickerSessionContract.EXTRA_PICK_CONTACTS_REQUESTED_DATA_FIELDS
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -98,7 +100,7 @@ class Platform(private val context: Context) {
                 )
 
                 // Set up the intent for the Contact Picker
-                val pickContactIntent = Intent(Intent.ACTION_PICK_CONTACTS).apply {
+                val pickContactIntent = Intent(ContactsPickerSessionContract.ACTION_PICK_CONTACTS).apply {
                     putStringArrayListExtra(
                         EXTRA_PICK_CONTACTS_REQUESTED_DATA_FIELDS,
                         requestedFields
