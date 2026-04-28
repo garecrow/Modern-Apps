@@ -119,5 +119,5 @@
     <!-- Settings -->
     <string name="settings">Settings</string>
     <string name="settings_use_gps_only">Use GPS Only</string>
-    <string name="settings_use_gps_only_desc">Use precise GPS location instead of network location. Uses more battery but provides accurate location on graphene os.</string>
+    <string name="settings_use_gps_only_desc">Use precise GPS location instead of network location. Provides more accurate location, but will increase battery usage.</string>
 </resources>
