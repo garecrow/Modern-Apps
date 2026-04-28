@@ -114,7 +114,7 @@
 
     <!-- Missing features screen -->
     <string name="missing_features_title">Required Features Disabled</string>
-    <string name="missing_features_explanation">FindFamily requires Network Location and a Geocoder to function correctly. Please ensure Google Play Services or an equivalent is installed and that Network Location is enabled in your device settings.</string>
+    <string name="missing_features_explanation">FindFamily requires Network Location and a Geocoder to function correctly. You must enable them to continue.</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>
