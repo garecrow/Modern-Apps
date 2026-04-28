@@ -50,7 +50,6 @@
     <string name="change_color">Muuda värvi</string>
     <string name="delete_calendar">Kustuta kalender</string>
     <string name="delete_calendar_confirm">Kas oled kindel, et soovid „%1$s“ kustutada? Sellega kaovad kõik selles kalendris leiduvad sündmused.</string>
-    <string name="this_calendar">selle kalendri</string>
     <string name="rename_calendar">Muuda kalendri nime</string>
     <string name="new_name">Uus nimi</string>
     <string name="create_a_calendar">Loo kalender</string>

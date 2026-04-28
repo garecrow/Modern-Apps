@@ -50,7 +50,6 @@
     <string name="change_color">Wybierz kolor</string>
     <string name="delete_calendar">Usuń kalendarz</string>
     <string name="delete_calendar_confirm">Czy na pewno chcesz usunąć „%1$s”? Spowoduje to usunięcie wszystkich wydarzeń w kalendarzu.</string>
-    <string name="this_calendar">ten kalendarz</string>
     <string name="rename_calendar">Zmień nazwę kalendarza</string>
     <string name="new_name">Nowa nazwa</string>
     <string name="create_a_calendar">Utwórz kalendarz</string>
