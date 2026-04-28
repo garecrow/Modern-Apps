@@ -118,6 +118,6 @@
 
     <!-- Settings -->
     <string name="settings">Settings</string>
-    <string name="settings_use_network_location">Use Network Location</string>
-    <string name="settings_use_network_location_desc">Allow network-based location as fallback when GPS is unavailable</string>
+    <string name="settings_use_gps_only">Use GPS Only</string>
+    <string name="settings_use_gps_only_desc">Use precise GPS location instead of network location. Uses more battery but provides accurate location on graphene os.</string>
 </resources>

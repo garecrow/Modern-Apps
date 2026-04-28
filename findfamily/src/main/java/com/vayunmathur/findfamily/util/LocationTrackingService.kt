@@ -189,21 +189,21 @@ class LocationTrackingService : Service() {
         bm = getSystemService(BATTERY_SERVICE) as BatteryManager
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
         val dataStore = DataStoreUtils.getInstance(this@LocationTrackingService)
-        val useNetworkLocation = dataStore.getBoolean("useNetworkLocation", false)
+        val useGpsOnly = dataStore.getBoolean("useGpsOnly", false)
 
-        try {
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER,
-                    10_000L,
-                    0f,
-                    locationListener
-                )
+        if (useGpsOnly) {
+            try {
+                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    locationManager.requestLocationUpdates(
+                        LocationManager.GPS_PROVIDER,
+                        10_000L,
+                        0f,
+                        locationListener
+                    )
+                }
+            } catch (_: SecurityException) {
             }
-        } catch (_: SecurityException) {
-        }
-
-        if (useNetworkLocation) {
+        } else {
             try {
                 locationManager.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,

@@ -37,9 +37,9 @@ fun SettingsPage(
 ) {
     val context = LocalContext.current
     val dataStore = DataStoreUtils.getInstance(context)
-    val useNetworkLocation by dataStore.booleanFlow("useNetworkLocation").collectAsState(initial = false)
+    val useGpsOnly by dataStore.booleanFlow("useGpsOnly").collectAsState(initial = false)
     val scope = rememberCoroutineScope()
-    var switchChecked by remember(useNetworkLocation) { mutableStateOf(useNetworkLocation) }
+    var switchChecked by remember(useGpsOnly) { mutableStateOf(useGpsOnly) }
 
     Scaffold(
         topBar = {
@@ -54,15 +54,15 @@ fun SettingsPage(
         ) {
             item {
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_use_network_location)) },
-                    supportingContent = { Text(stringResource(R.string.settings_use_network_location_desc)) },
+                    headlineContent = { Text(stringResource(R.string.settings_use_gps_only)) },
+                    supportingContent = { Text(stringResource(R.string.settings_use_gps_only_desc)) },
                     trailingContent = {
                         Switch(
                             checked = switchChecked,
                             onCheckedChange = { enabled ->
                                 switchChecked = enabled
                                 scope.launch {
-                                    dataStore.setBoolean("useNetworkLocation", enabled)
+                                    dataStore.setBoolean("useGpsOnly", enabled)
                                 }
                             }
                         )
