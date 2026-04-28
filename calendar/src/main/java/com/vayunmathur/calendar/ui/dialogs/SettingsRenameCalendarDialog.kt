@@ -28,6 +28,10 @@ fun SettingsRenameCalendarDialog(viewModel: CalendarViewModel, backStack: NavBac
         backStack.pop()
         return
     }
+    if (!cal.canModify) {
+        backStack.pop()
+        return
+    }
     var renameText by remember { mutableStateOf(cal.displayName) }
 
     AlertDialog(

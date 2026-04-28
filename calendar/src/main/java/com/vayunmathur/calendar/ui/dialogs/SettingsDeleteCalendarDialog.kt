@@ -16,17 +16,24 @@ import com.vayunmathur.calendar.Route
 @Composable
 fun SettingsDeleteCalendarDialog(viewModel: CalendarViewModel, backStack: NavBackStack<Route>, calendarId: Long) {
     val calendars by viewModel.calendars.collectAsState()
-    val cal = calendars.find { it.id == calendarId }
+    val cal = calendars.find { it.id == calendarId } ?: run {
+        backStack.pop()
+        return
+    }
+    if (!cal.canModify) {
+        backStack.pop()
+        return
+    }
 
     AlertDialog(
         onDismissRequest = { backStack.pop() },
         title = { Text(stringResource(R.string.delete_calendar)) },
         text = {
             Text(
-                if (cal?.displayName.isNullOrBlank()) {
+                if (cal.displayName.isBlank()) {
                     stringResource(R.string.delete_calendar_confirm)
                 } else {
-                    stringResource(R.string.delete_calendar_name_confirm, cal!!.displayName)
+                    stringResource(R.string.delete_calendar_name_confirm, cal.displayName)
                 }
             )
         },

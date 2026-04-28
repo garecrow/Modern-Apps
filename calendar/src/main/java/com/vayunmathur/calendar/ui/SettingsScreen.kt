@@ -64,14 +64,17 @@ fun SettingsScreen(viewModel: CalendarViewModel, backStack: NavBackStack<Route>)
                 IconNavigation(backStack)
             }, actions = {
                 if(selectedCalendarId != null) {
-                    IconButton(onClick = {
-                        // open rename dialog via navigation
-                        backStack.add(Route.Settings.RenameCalendar(selectedCalendarId!!))
-                    }) {
-                        IconEdit()
-                    }
-                    IconButton(onClick = { backStack.add(Route.Settings.DeleteCalendar(selectedCalendarId!!)) }) {
-                        IconDelete()
+                    val selectedCalendar = calendars.find { it.id == selectedCalendarId }
+                    if (selectedCalendar?.canModify == true) {
+                        IconButton(onClick = {
+                            // open rename dialog via navigation
+                            backStack.add(Route.Settings.RenameCalendar(selectedCalendarId!!))
+                        }) {
+                            IconEdit()
+                        }
+                        IconButton(onClick = { backStack.add(Route.Settings.DeleteCalendar(selectedCalendarId!!)) }) {
+                            IconDelete()
+                        }
                     }
                 }
             })

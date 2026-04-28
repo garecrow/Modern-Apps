@@ -139,6 +139,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     // rename a calendar's display name
     fun renameCalendar(calendarId: Long, newDisplayName: String) {
         val app = getApplication<Application>()
+        val cal = calendars.value.find { it.id == calendarId }
+        if (cal == null || !cal.canModify) {
+            Log.e("CalendarViewModel", "Attempted to rename a readonly or non-existent calendar")
+            return
+        }
         val values = ContentValues().apply {
             put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, newDisplayName)
             put(CalendarContract.Calendars.NAME, newDisplayName)
@@ -159,6 +164,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     // delete a calendar and refresh caches
     fun deleteCalendar(calendarId: Long) {
         val app = getApplication<Application>()
+        val cal = calendars.value.find { it.id == calendarId }
+        if (cal == null || !cal.canModify) {
+            Log.e("CalendarViewModel", "Attempted to delete a readonly or non-existent calendar")
+            return
+        }
         val uri = CalendarContract.Calendars.CONTENT_URI
         try {
             app.contentResolver.delete(uri, "${CalendarContract.Calendars._ID} = ?", arrayOf(calendarId.toString()))
