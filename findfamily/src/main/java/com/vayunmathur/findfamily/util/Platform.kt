@@ -1,7 +1,10 @@
 package com.vayunmathur.findfamily.util
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.provider.ContactsContract
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,8 +13,11 @@ import androidx.activity.result.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.content.PermissionChecker
+import androidx.core.database.getBlobOrNull
 import androidx.core.database.getStringOrNull
 import com.vayunmathur.findfamily.R
+import kotlinx.coroutines.launch
+import kotlin.io.encoding.Base64
 
 class Platform(private val context: Context) {
     @SuppressLint("Range")
@@ -92,7 +98,7 @@ class Platform(private val context: Context) {
                 )
 
                 // Set up the intent for the Contact Picker
-                val pickContactIntent = Intent(ACTION_PICK_CONTACTS).apply {
+                val pickContactIntent = Intent(Intent.ACTION_PICK_CONTACTS).apply {
                     putStringArrayListExtra(
                         EXTRA_PICK_CONTACTS_REQUESTED_DATA_FIELDS,
                         requestedFields

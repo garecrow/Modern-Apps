@@ -12,64 +12,74 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
 /**
  * Converts a Markdown string into an AnnotatedString for Jetpack Compose.
  * @param mdtext The raw markdown text.
  * @param showMarkers If false, the formatting symbols (#, *, etc.) are hidden and occupy no space.
+ * @param process If true, the text is preprocessed for newline rules and list normalization.
  */
-fun parseMarkdown(mdtext: String, showMarkers: Boolean = true): AnnotatedString {
+fun parseMarkdown(mdtext: String, showMarkers: Boolean = true, process: Boolean = true): AnnotatedString {
     // 1. Preprocess text for newline rules and list normalization
-    val lines = mdtext.lines()
-    val processedText = buildString {
-        var i = 0
-        while (i < lines.size) {
-            val line = lines[i]
-            
-            // Rule: 2+ newlines always becomes 1 newline for anything.
-            // Since we append \n after every processed block, skipping blank lines
-            // effectively reduces 2+ newlines to the 1 newline from the previous block.
-            if (line.isBlank()) {
-                while (i + 1 < lines.size && lines[i + 1].isBlank()) i++
-                i++; continue
-            }
+    val processedText = if (process) {
+        val lines = mdtext.lines()
+        buildString {
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i]
 
-            val trimmed = line.trimStart()
-            val listMatch = Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(line)
-            val isCurrentSpecial = trimmed.startsWith("#") || trimmed.startsWith(">") || listMatch != null
+                // Rule: 2+ newlines always becomes 1 newline for anything.
+                // Since we append \n after every processed block, skipping blank lines
+                // effectively reduces 2+ newlines to the 1 newline from the previous block.
+                if (line.isBlank()) {
+                    while (i + 1 < lines.size && lines[i + 1].isBlank()) i++
+                    i++; continue
+                }
 
-            if (isCurrentSpecial) {
-                if (listMatch != null) {
-                    val rawIndent = listMatch.groups[1]!!.value
-                    val level = rawIndent.length / 2
-                    val normalizedIndent = "  ".repeat(level)
-                    val marker = listMatch.groups[2]!!.value
-                    val rest = listMatch.groups[3]!!.value
-                    val newMarker = if (marker.length == 1 && "*+-".contains(marker)) "•" else marker
-                    append("$normalizedIndent$newMarker ${rest.trimStart()}\n")
+                val trimmed = line.trimStart()
+                val listMatch = Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(line)
+                val isCurrentSpecial =
+                    trimmed.startsWith("#") || trimmed.startsWith(">") || listMatch != null
+
+                if (isCurrentSpecial) {
+                    if (listMatch != null) {
+                        val rawIndent = listMatch.groups[1]!!.value
+                        val level = rawIndent.length / 2
+                        val normalizedIndent = "  ".repeat(level)
+                        val marker = listMatch.groups[2]!!.value
+                        val rest = listMatch.groups[3]!!.value
+                        val newMarker =
+                            if (marker.length == 1 && "*+-".contains(marker)) "•" else marker
+                        append("$normalizedIndent$newMarker ${rest.trimStart()}\n")
+                    } else {
+                        append(line.trimEnd() + "\n")
+                    }
                 } else {
-                    append(line.trimEnd() + "\n")
+                    // Regular text: Rule: 1 newline becomes 0 newlines only when both lines are not headers or bullets
+                    var merged = line.trim()
+                    while (i + 1 < lines.size && lines[i + 1].isNotBlank()) {
+                        val nextLine = lines[i + 1]
+                        val nextTrimmed = nextLine.trimStart()
+                        val nextListMatch =
+                            Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine)
+                        val isNextSpecial =
+                            nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null
+
+                        if (isNextSpecial) break // Newline preserved if next line is special
+
+                        merged += " " + nextLine.trim()
+                        i++
+                    }
+                    append(merged + "\n")
                 }
-            } else {
-                // Regular text: Rule: 1 newline becomes 0 newlines only when both lines are not headers or bullets
-                var merged = line.trim()
-                while (i + 1 < lines.size && lines[i + 1].isNotBlank()) {
-                    val nextLine = lines[i + 1]
-                    val nextTrimmed = nextLine.trimStart()
-                    val nextListMatch = Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine)
-                    val isNextSpecial = nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null
-                    
-                    if (isNextSpecial) break // Newline preserved if next line is special
-                    
-                    merged += " " + nextLine.trim()
-                    i++
-                }
-                append(merged + "\n")
+                i++
             }
-            i++
-        }
-    }.trim()
+        }.trim()
+    } else {
+        mdtext
+    }
 
     return buildAnnotatedString {
         append(processedText)
@@ -100,15 +110,17 @@ fun parseMarkdown(mdtext: String, showMarkers: Boolean = true): AnnotatedString 
 
             hideRange(markers.range.first, markers.range.last + 1)
 
-            addStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = fontSize), start, end)
-            addStyle(
-                ParagraphStyle(
-                    lineHeight = fontSize * 1.3f,
-                    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
-                ),
-                start,
-                end
-            )
+            addStyle(SpanStyle(fontWeight = FontWeight.Bold).copy(fontSize = if (process) fontSize else TextUnit.Unspecified), start, end)
+            if (process) {
+                addStyle(
+                    ParagraphStyle(
+                        lineHeight = fontSize * 1.3f,
+                        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both)
+                    ),
+                    start,
+                    end
+                )
+            }
         }
 
         // 2. Lists
@@ -130,26 +142,27 @@ fun parseMarkdown(mdtext: String, showMarkers: Boolean = true): AnnotatedString 
                 }
             }
 
-            val level = indentation.length / 2
-            val indentBase = 12.sp
-            val indentStep = 24.sp
-            val firstLineIndent = (indentBase.value + (level * indentStep.value)).sp
-            val markerOffset = if (markerString.any { it.isDigit() }) 32.sp else 16.sp
+            if (process) {
+                val level = indentation.length / 2
+                val indentBase = 12.sp
+                val indentStep = 24.sp
+                val firstLineIndent = (indentBase.value + (level * indentStep.value)).sp
+                val markerOffset = if (markerString.any { it.isDigit() }) 32.sp else 16.sp
 
-            addStyle(
-                ParagraphStyle(
-                    textIndent = TextIndent(firstLine = firstLineIndent, restLine = (firstLineIndent.value + markerOffset.value).sp)
-                ),
-                start,
-                end
-            )
+                addStyle(
+                    ParagraphStyle(
+                        textIndent = TextIndent(firstLine = firstLineIndent, restLine = (firstLineIndent.value + markerOffset.value).sp)
+                    ),
+                    start,
+                    end
+                )
+            }
 
             addStyle(
                 SpanStyle(
                     color = if (showMarkers) Color.Gray else Color.Unspecified,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = if (markerString == "•") 18.sp else 16.sp
-                ),
+                    fontWeight = FontWeight.Bold
+                ).copy(fontSize = if (process) (if (markerString == "•") 18.sp else 16.sp) else TextUnit.Unspecified),
                 start,
                 contentStart
             )

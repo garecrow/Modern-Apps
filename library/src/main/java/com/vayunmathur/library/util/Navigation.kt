@@ -136,7 +136,7 @@ fun <T: NavKey> MainNavigation(backStack: NavBackStack<T>, entryProvider: EntryP
         ) {
             NavDisplay(
                 modifier = Modifier.padding(paddingValues).imePadding(),
-                sceneStrategy = DialogSceneStrategy<T>().then(sceneStrategy),
+                sceneStrategies = listOf(DialogSceneStrategy(), sceneStrategy),
                 backStack = backStack.backStack, entryProvider = {
                     EntryProviderScope(it).apply {
                         entryProvider()

@@ -108,7 +108,7 @@ fun NotePage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, noteI
                 var value by remember(note.id) {
                     mutableStateOf(
                         TextFieldValue(
-                            parseMarkdown(note.content)
+                            parseMarkdown(note.content, process = false)
                         )
                     )
                 }
@@ -126,7 +126,7 @@ fun NotePage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, noteI
                     if (isEditing) value else noMarkers,
                     {
                         note = note.copy(content = it.text)
-                        value = it.copy(annotatedString = parseMarkdown(it.text))
+                        value = it.copy(annotatedString = parseMarkdown(it.text, process = false))
                     },
                     Modifier.fillMaxSize(),
                     readOnly = !isEditing,
