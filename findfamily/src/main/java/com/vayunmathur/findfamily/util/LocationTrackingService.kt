@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.location.Address
 import android.location.Geocoder
+import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.BatteryManager
@@ -56,19 +57,34 @@ class LocationTrackingService : Service() {
     private lateinit var waypoints: StateFlow<List<Waypoint>>
     private lateinit var temporaryLinks: StateFlow<List<TemporaryLink>>
     private lateinit var bm: BatteryManager
+    private var isGpsRunning = false
 
-    private val locationListener = LocationListener { location ->
-        if(Networking.userid == 0L) return@LocationListener
+    private val networkListener = LocationListener { location ->
+        if (location.accuracy > 100f) {
+            if (!isGpsRunning) startGps()
+        } else {
+            if (isGpsRunning) stopGps()
+            processLocation(location)
+        }
+    }
+
+    private val gpsListener = LocationListener { location ->
+        processLocation(location)
+    }
+
+    private fun processLocation(location: Location) {
+        if(Networking.userid == 0L) return
         val users = users.value
         val waypoints = waypoints.value
         val temporaryLinks = temporaryLinks.value
         val userIDs = users.map { it.id }
         val now = Clock.System.now()
+        println(location.accuracy)
         val locationValue = LocationValue(
             Networking.userid,
             Coord(location.latitude, location.longitude),
             0f,
-            100f,
+            location.accuracy,
             Clock.System.now(),
             bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).toFloat()
         )
@@ -188,31 +204,15 @@ class LocationTrackingService : Service() {
 
         bm = getSystemService(BATTERY_SERVICE) as BatteryManager
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
-        val dataStore = DataStoreUtils.getInstance(this@LocationTrackingService)
-        val useGpsOnly = dataStore.getBoolean("useGpsOnly", false)
 
-        if (useGpsOnly) {
-            try {
-                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                    locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER,
-                        10_000L,
-                        0f,
-                        locationListener
-                    )
-                }
-            } catch (_: SecurityException) {
-            }
-        } else {
-            try {
-                locationManager.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER,
-                    10_000L,
-                    0f,
-                    locationListener
-                )
-            } catch (_: SecurityException) {
-            }
+        try {
+            locationManager.requestLocationUpdates(
+                LocationManager.NETWORK_PROVIDER,
+                10_000L,
+                0f,
+                networkListener
+            )
+        } catch (_: SecurityException) {
         }
     }
 
@@ -295,10 +295,31 @@ class LocationTrackingService : Service() {
         manager.notify(notificationId, notification)
     }
 
+    private fun startGps() {
+        try {
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    10_000L,
+                    0f,
+                    gpsListener
+                )
+                isGpsRunning = true
+            }
+        } catch (_: SecurityException) {
+        }
+    }
+
+    private fun stopGps() {
+        locationManager.removeUpdates(gpsListener)
+        isGpsRunning = false
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // CRITICAL: Stop the hardware sensors
-        locationManager.removeUpdates(locationListener)
+        locationManager.removeUpdates(networkListener)
+        locationManager.removeUpdates(gpsListener)
 
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
