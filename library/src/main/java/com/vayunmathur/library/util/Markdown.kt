@@ -20,8 +20,14 @@ import androidx.compose.ui.unit.sp
  * @param mdtext The raw markdown text.
  * @param showMarkers If false, the formatting symbols (#, *, etc.) are hidden and occupy no space.
  * @param process If true, the text is preprocessed for newline rules and list normalization.
+ * @param softWrap If true, single newlines in regular text blocks are merged into a single line.
  */
-fun parseMarkdown(mdtext: String, showMarkers: Boolean = true, process: Boolean = true): AnnotatedString {
+fun parseMarkdown(
+    mdtext: String,
+    showMarkers: Boolean = true,
+    process: Boolean = true,
+    softWrap: Boolean = true
+): AnnotatedString {
     // 1. Preprocess text for newline rules and list normalization
     val processedText = if (process) {
         val lines = mdtext.lines()
@@ -59,18 +65,20 @@ fun parseMarkdown(mdtext: String, showMarkers: Boolean = true, process: Boolean 
                 } else {
                     // Regular text: Rule: 1 newline becomes 0 newlines only when both lines are not headers or bullets
                     var merged = line.trim()
-                    while (i + 1 < lines.size && lines[i + 1].isNotBlank()) {
-                        val nextLine = lines[i + 1]
-                        val nextTrimmed = nextLine.trimStart()
-                        val nextListMatch =
-                            Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine)
-                        val isNextSpecial =
-                            nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null
+                    if (softWrap) {
+                        while (i + 1 < lines.size && lines[i + 1].isNotBlank()) {
+                            val nextLine = lines[i + 1]
+                            val nextTrimmed = nextLine.trimStart()
+                            val nextListMatch =
+                                Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine)
+                            val isNextSpecial =
+                                nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null
 
-                        if (isNextSpecial) break // Newline preserved if next line is special
+                            if (isNextSpecial) break // Newline preserved if next line is special
 
-                        merged += " " + nextLine.trim()
-                        i++
+                            merged += " " + nextLine.trim()
+                            i++
+                        }
                     }
                     append(merged + "\n")
                 }
