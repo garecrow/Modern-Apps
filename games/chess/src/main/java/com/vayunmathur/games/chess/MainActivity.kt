@@ -25,12 +25,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -199,6 +201,7 @@ fun NewGameDialog(onNewGame: (GameMode) -> Unit) {
         )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChessGame(
     viewModel: ChessViewModel,
@@ -211,7 +214,18 @@ fun ChessGame(
         PawnPromotionDialog(if (uiState.turn == PieceColor.WHITE) PieceColor.BLACK else PieceColor.WHITE, onPromote = onPromote)
     }
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    com.vayunmathur.library.ui.BackupButtons(
+                        datastoreNames = listOf("datastore_default")
+                    )
+                }
+            )
+        }
+    ) { innerPadding ->
         Column(
             Modifier
                 .fillMaxSize()

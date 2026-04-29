@@ -128,7 +128,14 @@ fun Navigation(completedLevelsRepository: CompletedLevelsRepository) {
 @Composable
 fun PackScreen(backStack: NavBackStack<Route>) {
     Scaffold(topBar = {
-        TopAppBar({Text(stringResource(R.string.pack_selector))})
+        TopAppBar(
+            title = { Text(stringResource(R.string.pack_selector)) },
+            actions = {
+                com.vayunmathur.library.ui.BackupButtons(
+                    prefNames = listOf("level_stats")
+                )
+            }
+        )
     }) { paddingValues ->
         LazyColumn(
             Modifier.fillMaxSize(),

@@ -10,8 +10,10 @@ import java.io.FileOutputStream
 
 abstract class BaseBackupAgent : BackupAgent() {
     
-    abstract val dbConfigs: List<Pair<String, String>>
-    abstract val extraFiles: List<File>
+    open val dbConfigs: List<Pair<String, String>> = emptyList()
+    open val datastoreNames: List<String> = emptyList()
+    open val prefNames: List<String> = emptyList()
+    open val extraFiles: List<File> = emptyList()
     
     private val BACKUP_KEY = "full_backup"
 
@@ -22,7 +24,7 @@ abstract class BaseBackupAgent : BackupAgent() {
     ) {
         val backupFile = File(cacheDir, "backup.zip")
         FileOutputStream(backupFile).use { fos ->
-            BackupHelper.performFullBackup(this, dbConfigs, extraFiles, fos)
+            BackupHelper.performFullBackup(this, dbConfigs, datastoreNames, prefNames, extraFiles, fos)
         }
 
         val lastModified = backupFile.lastModified()
@@ -59,7 +61,7 @@ abstract class BaseBackupAgent : BackupAgent() {
                 val extraFilesMapping = extraFiles.associateBy { it.name }
                 
                 restoreFile.inputStream().use { fis ->
-                    BackupHelper.performFullRestore(this, dbConfigs, extraFilesMapping, fis)
+                    BackupHelper.performFullRestore(this, dbConfigs, datastoreNames, prefNames, extraFilesMapping, fis)
                 }
                 
                 restoreFile.delete()

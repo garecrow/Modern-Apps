@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme.colorScheme
@@ -37,6 +38,7 @@ import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -160,6 +162,7 @@ data class AnimatedLetter(
     val progress: Animatable<Float, AnimationVector1D>
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WordGameScreen(
     crosswordData: CrosswordData,
@@ -233,7 +236,19 @@ fun WordGameScreen(
 
     val isWon = crosswordData.winsWith(foundWords)
 
-    Scaffold(Modifier.fillMaxSize()) { innerPadding ->
+    Scaffold(
+        Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    com.vayunmathur.library.ui.BackupButtons(
+                        datastoreNames = listOf("settings")
+                    )
+                }
+            )
+        }
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .padding(innerPadding).padding(bottom = 32.dp)

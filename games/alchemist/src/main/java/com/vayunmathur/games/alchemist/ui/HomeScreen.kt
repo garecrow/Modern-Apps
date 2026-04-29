@@ -36,6 +36,7 @@ data class PlacedItem(
     val key: Long = System.nanoTime()
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(backStack: NavBackStack<Route>, ds: DataStoreUtils) {
     val itemsIds by remember {
@@ -63,7 +64,17 @@ fun HomeScreen(backStack: NavBackStack<Route>, ds: DataStoreUtils) {
     var contextMenuExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = Modifier.onGloballyPositioned { screenWidth = it.size.width.toFloat() }
+        modifier = Modifier.onGloballyPositioned { screenWidth = it.size.width.toFloat() },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    com.vayunmathur.library.ui.BackupButtons(
+                        datastoreNames = listOf("datastore_default")
+                    )
+                }
+            )
+        }
     ) { paddingValues ->
         Box(
             Modifier

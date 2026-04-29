@@ -153,6 +153,8 @@ object BackupHelper {
     fun performFullBackup(
         context: Context,
         dbConfigs: List<Pair<String, String>>, // dbName to password
+        datastoreNames: List<String> = emptyList(),
+        prefNames: List<String> = emptyList(),
         extraFiles: List<File>,
         outputStream: OutputStream
     ) {
@@ -160,7 +162,7 @@ object BackupHelper {
         if (tempDir.exists()) tempDir.deleteRecursively()
         tempDir.mkdirs()
 
-        Log.d(TAG, "performFullBackup: Started. dbConfigs count=${dbConfigs.size}, extraFiles count=${extraFiles.size}")
+        Log.d(TAG, "performFullBackup: Started. dbConfigs count=${dbConfigs.size}, datastore count=${datastoreNames.size}, prefs count=${prefNames.size}, extraFiles count=${extraFiles.size}")
         Log.d(TAG, "performFullBackup: Temp dir: ${tempDir.absolutePath}")
 
         val filesToZip = mutableListOf<File>()
@@ -174,6 +176,28 @@ object BackupHelper {
                 Log.d(TAG, "performFullBackup: Added $dbName.db to filesToZip. Size: ${plainDbFile.length()}")
             } else {
                 Log.w(TAG, "performFullBackup: Database export failed or file is empty: $dbName")
+            }
+        }
+
+        datastoreNames.forEach { dsName ->
+            val dsFile = File(context.filesDir, "datastore/$dsName.preferences_pb")
+            val dsFileAlt = File(context.filesDir, "$dsName.preferences_pb")
+            val actualFile = if (dsFile.exists()) dsFile else if (dsFileAlt.exists()) dsFileAlt else null
+            if (actualFile != null) {
+                val targetFile = File(tempDir, actualFile.name)
+                actualFile.copyTo(targetFile, true)
+                filesToZip.add(targetFile)
+                Log.d(TAG, "performFullBackup: Added ${actualFile.name} to backup")
+            }
+        }
+
+        prefNames.forEach { prefName ->
+            val prefFile = File(context.dataDir, "shared_prefs/$prefName.xml")
+            if (prefFile.exists()) {
+                val targetFile = File(tempDir, prefFile.name)
+                prefFile.copyTo(targetFile, true)
+                filesToZip.add(targetFile)
+                Log.d(TAG, "performFullBackup: Added ${prefFile.name} to backup")
             }
         }
 
@@ -206,6 +230,8 @@ object BackupHelper {
     fun performFullRestore(
         context: Context,
         dbConfigs: List<Pair<String, String>>,
+        datastoreNames: List<String> = emptyList(),
+        prefNames: List<String> = emptyList(),
         extraFilesMapping: Map<String, File>, // filename in zip to target File
         inputStream: InputStream
     ) {
@@ -219,6 +245,27 @@ object BackupHelper {
             val plainDbFile = File(tempDir, "$dbName.db")
             if (plainDbFile.exists()) {
                 importDatabase(context, dbName, password, plainDbFile)
+            }
+        }
+
+        datastoreNames.forEach { dsName ->
+            val dsFile = File(tempDir, "$dsName.preferences_pb")
+            if (dsFile.exists()) {
+                val targetFile1 = File(context.filesDir, "datastore/$dsName.preferences_pb")
+                val targetFile2 = File(context.filesDir, "$dsName.preferences_pb")
+                val targetFile = if (dsName == "datastore_default") targetFile2 else targetFile1
+                
+                targetFile.parentFile?.mkdirs()
+                dsFile.copyTo(targetFile, true)
+            }
+        }
+
+        prefNames.forEach { prefName ->
+            val prefFile = File(tempDir, "$prefName.xml")
+            if (prefFile.exists()) {
+                val targetFile = File(context.dataDir, "shared_prefs/$prefName.xml")
+                targetFile.parentFile?.mkdirs()
+                prefFile.copyTo(targetFile, true)
             }
         }
 
