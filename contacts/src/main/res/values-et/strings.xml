@@ -50,4 +50,16 @@
     <string name="action_call">Helista</string>
     <string name="action_message">Saada sõnum</string>
     <string name="action_video">Alusta videokõnet</string>
+    <string name="add_date">Lisa kuupäev</string>
+    <string name="remove_email">Eemalda e-posti aadress</string>
+    <string name="remove_address">Eemalda aadress</string>
+    <string name="remove_phone">Eemalda telefon</string>
+    <string name="delete_contact_confirm">Kas sa oled kindel, et soovid selle kontakti kustutada? Järgnevat tegevust ei saa tagasi pöörata.</string>
+    <string name="account_display_format">%1$s (%2$s)</string>
+    <string name="add_address">Lisa aadress</string>
+    <string name="add_phone">Lisa telefon</string>
+    <string name="remove_date">Eemalda kuupäev</string>
+    <string name="delete_contact_name_confirm">Kas sa oled kindel, et soovid „%1$s“ kontakti kustutada? Seda tegevust ei saa tagasi pöörata.</string>
+    <string name="add_email">Lisa e-posti aadress</string>
+    <string name="full_name_format">%1$s %2$s</string>
 </resources>
