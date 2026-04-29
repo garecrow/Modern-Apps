@@ -31,8 +31,11 @@ import com.vayunmathur.youpipe.data.HistoryVideo
 import com.vayunmathur.youpipe.data.Subscription
 import com.vayunmathur.youpipe.data.SubscriptionCategory
 import com.vayunmathur.youpipe.data.SubscriptionDatabase
+import com.vayunmathur.youpipe.data.MIGRATION_1_2
 import com.vayunmathur.youpipe.data.SubscriptionVideo
+import com.vayunmathur.youpipe.data.DownloadedVideo
 import com.vayunmathur.youpipe.ui.ChannelPage
+import com.vayunmathur.youpipe.ui.DownloadedVideosPage
 import com.vayunmathur.youpipe.ui.HistoryPage
 import com.vayunmathur.youpipe.util.PlaybackService
 import com.vayunmathur.youpipe.util.MyDownloader
@@ -78,12 +81,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val db = buildDatabase<SubscriptionDatabase>()
+        val db = buildDatabase<SubscriptionDatabase>(migrations = listOf(MIGRATION_1_2))
         val viewModel = DatabaseViewModel(db,
             Subscription::class to db.subscriptionDao(),
             SubscriptionVideo::class to db.subscriptionVideoDao(),
             HistoryVideo::class to db.historyVideoDao(),
-            SubscriptionCategory::class to db.subscriptionCategoryDao()
+            SubscriptionCategory::class to db.subscriptionCategoryDao(),
+            DownloadedVideo::class to db.downloadedVideoDao()
         )
         NewPipe.init(MyDownloader())
         setContent {
@@ -150,6 +154,9 @@ sealed interface Route: NavKey {
 
     @Serializable
     data object History: Route
+
+    @Serializable
+    data object Downloads: Route
 }
 
 @Composable
@@ -177,11 +184,15 @@ fun Navigation(initialRoute: Route, viewModel: DatabaseViewModel) {
         entry<Route.History> {
             HistoryPage(backStack, viewModel)
         }
+        entry<Route.Downloads> {
+            DownloadedVideosPage(backStack, viewModel)
+        }
     }
 }
 
 val MAIN_BOTTOM_BAR_ITEMS = listOf(
     BottomBarItem("Search", Route.SearchPage, R.drawable.outline_search_24),
     BottomBarItem("Subscriptions", Route.SubscriptionsPage, R.drawable.outline_subscriptions_24),
-    BottomBarItem("History", Route.History, R.drawable.baseline_history_24)
+    BottomBarItem("History", Route.History, R.drawable.baseline_history_24),
+    BottomBarItem("Downloads", Route.Downloads, R.drawable.outline_list_24)
 )

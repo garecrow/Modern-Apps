@@ -6,6 +6,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -31,8 +32,10 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
 
         val okHttpClient = OkHttpClient()
-        val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+        val okHttpDataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
             .setUserAgent("Mozilla/5.0 (Android 14; Mobile; rv:128.0) Gecko/128.0 Firefox/128.0")
+
+        val dataSourceFactory = DefaultDataSource.Factory(this, okHttpDataSourceFactory)
 
         // 1. Use delegation instead of inheritance
         val defaultMediaSourceFactory = DefaultMediaSourceFactory(this)

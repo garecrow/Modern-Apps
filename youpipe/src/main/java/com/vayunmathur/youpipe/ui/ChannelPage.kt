@@ -1,5 +1,6 @@
 package com.vayunmathur.youpipe.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,14 +109,31 @@ fun ChannelPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, ch
 }
 
 @Composable
-fun VideoItem(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, videoInfo: VideoInfo, showAuthor: Boolean) {
+fun VideoItem(
+    backStack: NavBackStack<Route>,
+    viewModel: DatabaseViewModel,
+    videoInfo: VideoInfo,
+    showAuthor: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    backupOnClick: Boolean = true,
+) {
     val context = LocalContext.current
     val historyItem by viewModel.getNullable<HistoryVideo>(videoInfo.videoID)
     val timeWatched = historyItem?.progress ?: 0
     val percentWatched = timeWatched.toDouble() / videoInfo.duration.toDouble()
-    Row(Modifier.invisibleClickable{
-        backStack.add(Route.VideoPage(videoInfo.videoID))
-    }) {
+    
+    val itemModifier = if (onClick != null) {
+        modifier.clickable(onClick = onClick)
+    } else if(backupOnClick) {
+        modifier.invisibleClickable {
+            backStack.add(Route.VideoPage(videoInfo.videoID))
+        }
+    } else {
+        modifier
+    }
+
+    Row(itemModifier) {
         Box(Modifier.weight(1f)) {
             Box(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 8.dp).clip(RoundedCornerShape(12.dp))) {
                 AsyncImage(

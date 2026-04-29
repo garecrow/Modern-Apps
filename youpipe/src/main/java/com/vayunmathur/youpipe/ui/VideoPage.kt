@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,16 +23,28 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +66,9 @@ import com.vayunmathur.library.util.NavBackStack
 import coil.compose.AsyncImage
 import com.vayunmathur.library.util.DatabaseViewModel
 import com.vayunmathur.library.util.round
+import com.vayunmathur.youpipe.data.DownloadedVideo
+import com.vayunmathur.youpipe.util.DownloadManager
+import com.vayunmathur.youpipe.util.downloadVideo
 import com.vayunmathur.youpipe.R
 import com.vayunmathur.youpipe.Route
 import com.vayunmathur.youpipe.util.channelURLtoID
@@ -110,36 +126,47 @@ fun VideoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, vide
 
     var error by remember { mutableStateOf(false) }
 
+    val downloadedVideo by viewModel.getNullable<DownloadedVideo>(videoID)
+
     LaunchedEffect(Unit) {
         try {
             val youtubeService: StreamingService = ServiceList.YouTube
             withContext(Dispatchers.IO) {
                 val streamExtractor = youtubeService.getStreamExtractor(url)
                 streamExtractor.fetchPage()
-                segments = streamExtractor.streamSegments.map {
-                    VideoChapter(
-                        it.startTimeSeconds * 1000,
-                        it.title,
-                        it.previewUrl
-                    )
+
+                if (downloadedVideo == null) {
+                    segments = streamExtractor.streamSegments.map {
+                        VideoChapter(
+                            it.startTimeSeconds * 1000,
+                            it.title,
+                            it.previewUrl
+                        )
+                    }
+                    videoStreams = streamExtractor.videoOnlyStreams.map {
+                        VideoStream(
+                            it.content,
+                            it.width,
+                            it.height,
+                            it.bitrate,
+                            it.fps,
+                            it.quality
+                        )
+                    }
+                    audioStreams = streamExtractor.audioStreams.map {
+                        AudioStream(
+                            it.content,
+                            it.bitrate,
+                            it.audioLocale?.language ?: "Default"
+                        )
+                    }
+                } else {
+                    val video = downloadedVideo!!
+                    videoStreams = listOf(VideoStream(video.filePath, 1920, 1080, 0, 30, "Downloaded"))
+                    audioStreams = if (video.audioPath != null) listOf(AudioStream(video.audioPath, 0, "Default")) else emptyList()
+                    segments = emptyList()
                 }
-                videoStreams = streamExtractor.videoOnlyStreams.map {
-                    VideoStream(
-                        it.content,
-                        it.width,
-                        it.height,
-                        it.bitrate,
-                        it.fps,
-                        it.quality
-                    )
-                }
-                audioStreams = streamExtractor.audioStreams.map {
-                    AudioStream(
-                        it.content,
-                        it.bitrate,
-                        it.audioLocale?.language ?: "Default"
-                    )
-                }
+
                 videoData = VideoData(
                     streamExtractor.name,
                     streamExtractor.viewCount,
@@ -176,8 +203,33 @@ fun VideoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, vide
                 }
             }
         } catch(e: Exception) {
-            error = true
-            e.printStackTrace()
+            if (downloadedVideo != null) {
+                val video = downloadedVideo!!
+                videoData = VideoData(
+                    video.videoItem.name,
+                    video.videoItem.views,
+                    video.videoItem.duration,
+                    video.videoItem.uploadDate,
+                    video.videoItem.thumbnailURL,
+                    video.videoItem.author,
+                    "",
+                    ""
+                )
+                videoStreams = listOf(VideoStream(video.filePath, 1920, 1080, 0, 30, "Downloaded"))
+                audioStreams = if (video.audioPath != null) listOf(AudioStream(video.audioPath, 0, "Default")) else emptyList()
+            } else {
+                error = true
+                e.printStackTrace()
+            }
+        }
+    }
+
+    LaunchedEffect(downloadedVideo) {
+        if (downloadedVideo != null) {
+            val video = downloadedVideo!!
+            videoStreams = listOf(VideoStream(video.filePath, 1920, 1080, 0, 30, "Downloaded"))
+            audioStreams = if (video.audioPath != null) listOf(AudioStream(video.audioPath, 0, "Default")) else emptyList()
+            segments = emptyList()
         }
     }
 
@@ -230,7 +282,7 @@ fun VideoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, vide
                 VideoPlayer(viewModel, VideoInfo(videoData.title, videoID, videoData.duration, videoData.views, videoData.uploadDate, videoData.thumbnailURL, videoData.author), videoStreams, audioStreams, segments, isFullscreen) {
                     isFullscreen = it
                 }
-                VideoDetails(backStack, videoData)
+                VideoDetails(backStack, viewModel, videoData, videoID, videoStreams, audioStreams)
             }
             if(!isFullscreen) {
                 val pagerState = rememberPagerState(pageCount = { 2 })
@@ -274,9 +326,153 @@ fun VideoPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, vide
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoDetails(backStack: NavBackStack<Route>, videoData: VideoData) {
+fun VideoDetails(
+    backStack: NavBackStack<Route>,
+    viewModel: DatabaseViewModel,
+    videoData: VideoData,
+    videoID: Long,
+    videoStreams: List<VideoStream>,
+    audioStreams: List<AudioStream>
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val downloadedVideo by viewModel.getNullable<DownloadedVideo>(videoID)
+    val activeDownloads by DownloadManager.activeDownloads.collectAsState()
+    val downloadProgress = activeDownloads[videoID]?.progress
+
+    var isDownloadDialogVisible by remember { mutableStateOf(false) }
+
+    if (isDownloadDialogVisible) {
+        var selectedVideoStream by remember { mutableStateOf(videoStreams.maxByOrNull { it.width * it.height } ?: videoStreams.first()) }
+        var selectedAudioStream by remember { mutableStateOf(audioStreams.firstOrNull()) }
+
+        val languages = remember(audioStreams) { audioStreams.map { it.language }.distinct().sorted() }
+        var selectedLanguage by remember { mutableStateOf(selectedAudioStream?.language ?: languages.firstOrNull() ?: "Default") }
+        val filteredAudioStreams = remember(selectedLanguage, audioStreams) { audioStreams.filter { it.language == selectedLanguage } }
+
+        var videoExpanded by remember { mutableStateOf(false) }
+        var languageExpanded by remember { mutableStateOf(false) }
+        var audioExpanded by remember { mutableStateOf(false) }
+
+        Dialog(onDismissRequest = { isDownloadDialogVisible = false }) {
+            Card {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Download Options", style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(16.dp))
+                    
+                    Text("Resolution", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = videoExpanded,
+                        onExpandedChange = { videoExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = "${selectedVideoStream.quality} (${selectedVideoStream.width}x${selectedVideoStream.height})",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = videoExpanded) },
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = videoExpanded,
+                            onDismissRequest = { videoExpanded = false }
+                        ) {
+                            videoStreams.distinctBy { it.quality }.forEach { stream ->
+                                DropdownMenuItem(
+                                    text = { Text("${stream.quality} (${stream.width}x${stream.height})") },
+                                    onClick = {
+                                        selectedVideoStream = stream
+                                        videoExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (languages.size > 1) {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Language", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = languageExpanded,
+                            onExpandedChange = { languageExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedLanguage,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageExpanded) },
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = languageExpanded,
+                                onDismissRequest = { languageExpanded = false }
+                            ) {
+                                languages.forEach { lang ->
+                                    DropdownMenuItem(
+                                        text = { Text(lang) },
+                                        onClick = {
+                                            selectedLanguage = lang
+                                            selectedAudioStream = audioStreams.firstOrNull { it.language == lang }
+                                            languageExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (filteredAudioStreams.isNotEmpty()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Audio Bitrate", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = audioExpanded,
+                            onExpandedChange = { audioExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedAudioStream?.let { "${it.bitrate / 1000} kbps" } ?: "None",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = audioExpanded) },
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = audioExpanded,
+                                onDismissRequest = { audioExpanded = false }
+                            ) {
+                                filteredAudioStreams.forEach { stream ->
+                                    DropdownMenuItem(
+                                        text = { Text("${stream.bitrate / 1000} kbps") },
+                                        onClick = {
+                                            selectedAudioStream = stream
+                                            audioExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(24.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { isDownloadDialogVisible = false }) { Text("Cancel") }
+                        TextButton(onClick = {
+                            isDownloadDialogVisible = false
+                            val videoInfo = VideoInfo(videoData.title, videoID, videoData.duration, videoData.views, videoData.uploadDate, videoData.thumbnailURL, videoData.author)
+                            DownloadManager.enqueueDownload(context, videoInfo, selectedVideoStream.url, selectedAudioStream?.url)
+                        }) { Text("Download") }
+                    }
+                }
+            }
+        }
+    }
+
     ListItem({
         Text(videoData.title, style = MaterialTheme.typography.titleMedium)
     }, Modifier, {}, {
@@ -289,6 +485,43 @@ fun VideoDetails(backStack: NavBackStack<Route>, videoData: VideoData) {
                 backStack.add(Route.ChannelPage(videoData.authorURL))
             }
         )
+    }, {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (downloadProgress != null) {
+                CircularProgressIndicator(
+                    progress = { downloadProgress.toFloat() },
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+                IconButton(onClick = {
+                    DownloadManager.cancelDownload(context, videoID)
+                }) {
+                    Icon(
+                        painterResource(com.vayunmathur.library.R.drawable.close_24px),
+                        contentDescription = "Cancel Download"
+                    )
+                }
+            } else if (downloadedVideo == null) {
+                IconButton(onClick = {
+                    isDownloadDialogVisible = true
+                }) {
+                    Icon(
+                        painterResource(com.vayunmathur.library.R.drawable.baseline_upload_24),
+                        contentDescription = "Download"
+                    )
+                }
+            } else {
+                IconButton(onClick = {
+                    viewModel.delete(downloadedVideo!!)
+                }) {
+                    Icon(
+                        painterResource(com.vayunmathur.library.R.drawable.delete_24px),
+                        contentDescription = "Delete Download",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
     })
 }
 
