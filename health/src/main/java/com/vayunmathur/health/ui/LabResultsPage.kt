@@ -8,24 +8,8 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +48,7 @@ fun LabResultsPage(backStack: NavBackStack<Route>) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var labResults by remember { mutableStateOf(listOf<Observation>()) }
+    var isProcessing by remember { mutableStateOf(false) }
     var showInstallDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
@@ -170,6 +155,7 @@ fun LabResultsPage(backStack: NavBackStack<Route>) {
 
     val resultReceiver = remember {
         SecureResultReceiver(null) { resultCode, resultData ->
+            isProcessing = false
             if (resultCode == 0) {
                 val jsonResult = resultData?.getString("json_result")
                 if (jsonResult != null) {
@@ -188,6 +174,7 @@ fun LabResultsPage(backStack: NavBackStack<Route>) {
 
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
+            isProcessing = true
             scope.launch {
                 try {
                     val imagePaths = convertPdfToImages(context, uri)
@@ -207,9 +194,12 @@ fun LabResultsPage(backStack: NavBackStack<Route>) {
                             putExtra("RECEIVER", resultReceiver)
                         }
                         context.startService(intent)
+                    } else {
+                        isProcessing = false
                     }
                 } catch (e: Exception) {
                     Log.e("LabResultsPage", "Error processing PDF", e)
+                    isProcessing = false
                 }
             }
         }
@@ -225,21 +215,52 @@ fun LabResultsPage(backStack: NavBackStack<Route>) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                if (isOpenAssistantInstalled(context)) {
-                    pdfLauncher.launch("application/pdf")
-                } else {
-                    showInstallDialog = true
+            if (labResults.isNotEmpty()) {
+                FloatingActionButton(onClick = {
+                    if (isOpenAssistantInstalled(context)) {
+                        pdfLauncher.launch("application/pdf")
+                    } else {
+                        showInstallDialog = true
+                    }
+                }) {
+                    IconUpload()
                 }
-            }) {
-                IconUpload()
             }
         }
     ) { paddingValues ->
         Column(Modifier.padding(paddingValues).padding(horizontal = 16.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                labResults.forEach {
-                    ObservationCard(it)
+            if (isProcessing) {
+                Card(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Text(stringResource(R.string.msg_processing_document))
+                    }
+                }
+            }
+
+            if (labResults.isEmpty() && !isProcessing) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Button(onClick = {
+                        if (isOpenAssistantInstalled(context)) {
+                            pdfLauncher.launch("application/pdf")
+                        } else {
+                            showInstallDialog = true
+                        }
+                    }) {
+                        IconUpload()
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.msg_upload_first_lab_result))
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    labResults.forEach {
+                        ObservationCard(it)
+                    }
                 }
             }
         }

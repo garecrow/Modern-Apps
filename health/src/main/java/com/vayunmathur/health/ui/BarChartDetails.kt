@@ -288,7 +288,11 @@ fun BarChartDetails(
             secondaryChartData = mappedSecondaryChart,
             historyItems = history,
             totalBarCount = rawPairs.size,
-            primaryRange = mappedChart.minOfOrNull { it.second }?.rangeTo(mappedChart.maxOf { it.second })
+            primaryRange = mappedChart.minOfOrNull { it.second }?.let { min ->
+                mappedChart.maxOfOrNull { it.second }?.let { max ->
+                    if (min < max) min..max else if (min > max) max..min else min..min + 1.0
+                }
+            }
         )
     }
 

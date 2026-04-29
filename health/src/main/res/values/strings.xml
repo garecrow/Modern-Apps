@@ -157,4 +157,7 @@
     <string name="label_nutrition_details">Nutrition Details</string>
     <string name="total_energy_intake">Total energy intake</string>
     <string name="nutrient_progress_format">%1$s / %2$d %3$s</string>
+    <string name="msg_upload_first_immunization">Upload your first immunization record</string>
+    <string name="msg_upload_first_lab_result">Upload your first lab result</string>
+    <string name="msg_processing_document">Processing document&#8230;</string>
 </resources>

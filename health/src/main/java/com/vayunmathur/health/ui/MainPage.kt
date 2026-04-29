@@ -50,6 +50,8 @@ import com.vayunmathur.health.data.RecordType
 import com.vayunmathur.library.ui.invisibleClickable
 import com.vayunmathur.library.util.round
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
@@ -67,6 +69,7 @@ val JSON = kotlinx.serialization.json.Json {
 @Composable
 fun MainPage(backStack: NavBackStack<Route>) {
     val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    val today = now.date
 
     // Health Metrics States (Point-in-time)
     var br by remember { mutableStateOf<Double?>(null) }
@@ -85,50 +88,67 @@ fun MainPage(backStack: NavBackStack<Route>) {
     var boneMass by remember { mutableStateOf<Double?>(null) }
     var leanBodyMass by remember { mutableStateOf<Double?>(null) }
     var bodyWaterMass by remember { mutableStateOf<Double?>(null) }
-    
-    val dayStart = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.atStartOfDayIn(TimeZone.currentSystemDefault()).minus(24.hours)
-    val dayEnd = dayStart.plus(24.hours)
 
-    val totalCaloriesBurnedToday by HealthAPI.sumInRange(RecordType.CaloriesTotal, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-    val activeCaloriesBurnedToday by HealthAPI.sumInRange(RecordType.CaloriesActive, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-    val basalCaloriesBurnedToday by HealthAPI.sumInRange(RecordType.CaloriesBasal, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-    val stepsToday by HealthAPI.sumInRange(RecordType.Steps, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-    val wheelchairPushesToday by HealthAPI.sumInRange(RecordType.Wheelchair, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-    val mindfulnessToday by HealthAPI.sumInRange(RecordType.Mindfulness, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
+    val dayRange = remember(today) {
+        val start = today.atStartOfDayIn(TimeZone.currentSystemDefault()).minus(24.hours)
+        start to start.plus(24.hours)
+    }
+    val dayStart = dayRange.first
+    val dayEnd = dayRange.second
+
+    val totalCaloriesBurnedToday by HealthAPI.sumInRange(RecordType.CaloriesTotal, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
+    val activeCaloriesBurnedToday by HealthAPI.sumInRange(RecordType.CaloriesActive, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
+    val basalCaloriesBurnedToday by HealthAPI.sumInRange(RecordType.CaloriesBasal, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
+    val stepsToday by HealthAPI.sumInRange(RecordType.Steps, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
+    val wheelchairPushesToday by HealthAPI.sumInRange(RecordType.Wheelchair, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
+    val mindfulnessToday by HealthAPI.sumInRange(RecordType.Mindfulness, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
     val distanceToday by HealthAPI.sumInRange(RecordType.Distance, dayStart, dayEnd).collectAsState(0.0)
     val floorsClimbedToday by HealthAPI.sumInRange(RecordType.Floors, dayStart, dayEnd).collectAsState(0.0)
     val elevationGainedToday by HealthAPI.sumInRange(RecordType.Elevation, dayStart, dayEnd).collectAsState(0.0)
     val hydrationToday by HealthAPI.sumInRange(RecordType.Hydration, dayStart, dayEnd).collectAsState(0.0) // Liters
-    val nutritionCaloriesToday by HealthAPI.sumInRange(RecordType.Nutrition, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-//    val caloriesConsumedToday by HealthAPI.sumInRange(RecordType.NutritionEnergy, dayStart, dayEnd).collectAsState(0.0)
-//    val proteinToday by HealthAPI.sumInRange(RecordType.Protein, dayStart, dayEnd).collectAsState(0.0) // Grams
-//    val carbsToday by HealthAPI.sumInRange(RecordType.Carbohydrates, dayStart, dayEnd).collectAsState(0.0)
-//    val fatToday by HealthAPI.sumInRange(RecordType.Fat, dayStart, dayEnd).collectAsState(0.0)
+    val nutritionCaloriesToday by HealthAPI.sumInRange(RecordType.Nutrition, dayStart, dayEnd).let { f -> remember(f) { f.map { it.toLong() } } }.collectAsState(0L)
 
-    val heartRateMaxToday by HealthAPI.maxInRange(RecordType.HeartRate, dayStart, dayEnd).map{it?.toLong() ?: 0L}.collectAsState(0L)
-    val heartRateMinToday by HealthAPI.minInRange(RecordType.HeartRate, dayStart, dayEnd).map{it?.toLong() ?: 0L}.collectAsState(0L)
+    val heartRateMaxToday by HealthAPI.maxInRange(RecordType.HeartRate, dayStart, dayEnd).let { f -> remember(f) { f.map{it?.toLong() ?: 0L} } }.collectAsState(0L)
+    val heartRateMinToday by HealthAPI.minInRange(RecordType.HeartRate, dayStart, dayEnd).let { f -> remember(f) { f.map{it?.toLong() ?: 0L} } }.collectAsState(0L)
 
-//    val sleepDurationToday by HealthAPI.sumInRange(RecordType.Sleep, dayStart, dayEnd).map { it.toLong() }.collectAsState(0L)
-
-    LaunchedEffect(now.date) {
-        // 2. Fetch Latest Records (Point-in-time metrics)
+    LaunchedEffect(today) {
+        // 2. Fetch Latest Records (Point-in-time metrics) in parallel
         withContext(Dispatchers.IO) {
-            spo2 = HealthAPI.lastRecord(RecordType.OxygenSaturation)?.value
-            br = HealthAPI.lastRecord(RecordType.RespiratoryRate)?.value
-            hrv = HealthAPI.lastRecord(RecordType.HeartRateVariabilityRmssd)?.value
-            rhr = HealthAPI.lastRecord(RecordType.RestingHeartRate)?.value?.toLong()
-            skinTemp = HealthAPI.lastRecord(RecordType.SkinTemperature)?.value
-            vo2Max = HealthAPI.lastRecord(RecordType.Vo2Max)?.value
-            bloodGlucose = HealthAPI.lastRecord(RecordType.BloodGlucose)?.value
-            bloodPressure = HealthAPI.lastRecord(RecordType.BloodPressure)?.let {
-                it.value to it.secondaryValue
+            coroutineScope {
+                val spo2D = async { HealthAPI.lastRecord(RecordType.OxygenSaturation)?.value }
+                val brD = async { HealthAPI.lastRecord(RecordType.RespiratoryRate)?.value }
+                val hrvD = async { HealthAPI.lastRecord(RecordType.HeartRateVariabilityRmssd)?.value }
+                val rhrD = async { HealthAPI.lastRecord(RecordType.RestingHeartRate)?.value?.toLong() }
+                val skinTempD = async { HealthAPI.lastRecord(RecordType.SkinTemperature)?.value }
+                val vo2MaxD = async { HealthAPI.lastRecord(RecordType.Vo2Max)?.value }
+                val bloodGlucoseD = async { HealthAPI.lastRecord(RecordType.BloodGlucose)?.value }
+                val bloodPressureD = async {
+                    HealthAPI.lastRecord(RecordType.BloodPressure)?.let {
+                        it.value to it.secondaryValue
+                    }
+                }
+                val heightD = async { HealthAPI.lastRecord(RecordType.Height)?.value }
+                val weightD = async { HealthAPI.lastRecord(RecordType.Weight)?.value }
+                val bodyFatD = async { HealthAPI.lastRecord(RecordType.BodyFat)?.value }
+                val boneMassD = async { HealthAPI.lastRecord(RecordType.BoneMass)?.value }
+                val leanBodyMassD = async { HealthAPI.lastRecord(RecordType.LeanBodyMass)?.value }
+                val bodyWaterMassD = async { HealthAPI.lastRecord(RecordType.BodyWaterMass)?.value }
+
+                spo2 = spo2D.await()
+                br = brD.await()
+                hrv = hrvD.await()
+                rhr = rhrD.await()
+                skinTemp = skinTempD.await()
+                vo2Max = vo2MaxD.await()
+                bloodGlucose = bloodGlucoseD.await()
+                bloodPressure = bloodPressureD.await()
+                height = heightD.await()
+                weight = weightD.await()
+                bodyFat = bodyFatD.await()
+                boneMass = boneMassD.await()
+                leanBodyMass = leanBodyMassD.await()
+                bodyWaterMass = bodyWaterMassD.await()
             }
-            height = HealthAPI.lastRecord(RecordType.Height)?.value
-            weight = HealthAPI.lastRecord(RecordType.Weight)?.value
-            bodyFat = HealthAPI.lastRecord(RecordType.BodyFat)?.value
-            boneMass = HealthAPI.lastRecord(RecordType.BoneMass)?.value
-            leanBodyMass = HealthAPI.lastRecord(RecordType.LeanBodyMass)?.value
-            bodyWaterMass = HealthAPI.lastRecord(RecordType.BodyWaterMass)?.value
         }
     }
 

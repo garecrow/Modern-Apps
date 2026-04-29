@@ -3,6 +3,7 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -64,7 +65,7 @@ data class NutritionData(
     val zinc: Double = 0.0
 )
 
-@Entity
+@Entity(indices = [Index(value = ["type", "startTime", "endTime"])])
 data class Record(
     val id: String,
     val index : Int, // for multisample records

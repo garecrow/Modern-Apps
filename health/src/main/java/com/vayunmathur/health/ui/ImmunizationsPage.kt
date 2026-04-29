@@ -42,6 +42,7 @@ fun ImmunizationsPage(backStack: NavBackStack<Route>) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var immunizations by remember { mutableStateOf(listOf<Immunization>()) }
+    var isProcessing by remember { mutableStateOf(false) }
     var showInstallDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
@@ -111,6 +112,7 @@ fun ImmunizationsPage(backStack: NavBackStack<Route>) {
 
     val resultReceiver = remember {
         SecureResultReceiver(null) { resultCode, resultData ->
+            isProcessing = false
             if (resultCode == 0) {
                 val jsonResult = resultData?.getString("json_result")
                 if (jsonResult != null) {
@@ -129,6 +131,7 @@ fun ImmunizationsPage(backStack: NavBackStack<Route>) {
 
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
+            isProcessing = true
             scope.launch {
                 try {
                     val imagePaths = convertPdfToImages(context, uri)
@@ -148,9 +151,12 @@ fun ImmunizationsPage(backStack: NavBackStack<Route>) {
                             putExtra("RECEIVER", resultReceiver)
                         }
                         context.startService(intent)
+                    } else {
+                        isProcessing = false
                     }
                 } catch (e: Exception) {
                     Log.e("ImmunizationsPage", "Error processing PDF", e)
+                    isProcessing = false
                 }
             }
         }
@@ -166,21 +172,52 @@ fun ImmunizationsPage(backStack: NavBackStack<Route>) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                if (isOpenAssistantInstalled(context)) {
-                    pdfLauncher.launch("application/pdf")
-                } else {
-                    showInstallDialog = true
+            if (immunizations.isNotEmpty()) {
+                FloatingActionButton(onClick = {
+                    if (isOpenAssistantInstalled(context)) {
+                        pdfLauncher.launch("application/pdf")
+                    } else {
+                        showInstallDialog = true
+                    }
+                }) {
+                    IconUpload()
                 }
-            }) {
-                IconUpload()
             }
         }
     ) { paddingValues ->
         Column(Modifier.padding(paddingValues).padding(horizontal = 16.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                immunizations.forEach {
-                    ImmunizationCard(it)
+            if (isProcessing) {
+                Card(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Text(stringResource(R.string.msg_processing_document))
+                    }
+                }
+            }
+
+            if (immunizations.isEmpty() && !isProcessing) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Button(onClick = {
+                        if (isOpenAssistantInstalled(context)) {
+                            pdfLauncher.launch("application/pdf")
+                        } else {
+                            showInstallDialog = true
+                        }
+                    }) {
+                        IconUpload()
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.msg_upload_first_immunization))
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    immunizations.forEach {
+                        ImmunizationCard(it)
+                    }
                 }
             }
         }

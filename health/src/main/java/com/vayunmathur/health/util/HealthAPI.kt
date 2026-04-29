@@ -45,7 +45,7 @@ object HealthAPI {
 
     @Composable
     fun sumInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double> {
-        return remember { db.healthDao().sumInRange(recordType, startTime, endTime) }
+        return remember(recordType, startTime, endTime) { db.healthDao().sumInRange(recordType, startTime, endTime) }
     }
 
     @Composable
@@ -250,12 +250,12 @@ object HealthAPI {
 
     @Composable
     fun maxInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double?> {
-        return remember { db.healthDao().maxInRange(recordType, startTime, endTime) }
+        return remember(recordType, startTime, endTime) { db.healthDao().maxInRange(recordType, startTime, endTime) }
     }
 
     @Composable
     fun minInRange(recordType: RecordType, startTime: Instant, endTime: Instant): Flow<Double?> {
-        return remember { db.healthDao().minInRange(recordType, startTime, endTime) }
+        return remember(recordType, startTime, endTime) { db.healthDao().minInRange(recordType, startTime, endTime) }
     }
 
     suspend inline fun lastRecord(recordType: RecordType): Record? {
@@ -264,6 +264,18 @@ object HealthAPI {
 
     enum class PeriodType {
         Hourly, Daily, Weekly, Monthly
+    }
+
+    private val hourlyFormat = LocalDateTime.Format {
+        year()
+        chars("-")
+        monthNumber()
+        chars("-")
+        day()
+        chars(" ")
+        hour()
+        chars(":")
+        minute()
     }
 
     suspend fun getListOfAverages(
@@ -303,17 +315,7 @@ object HealthAPI {
             else -> {
                 val hourlySums = db.healthDao().getHourlyAvgs(recordType, startTime.toEpochMilliseconds(), endTime.toEpochMilliseconds()).sortedBy { it.hourBlock }
                 return hourlySums.map {
-                    val date = LocalDateTime.Format {
-                        year()
-                        chars("-")
-                        monthNumber()
-                        chars("-")
-                        day()
-                        chars(" ")
-                        hour()
-                        chars(":")
-                        minute()
-                    }.parse(it.hourBlock)
+                    val date = hourlyFormat.parse(it.hourBlock)
                     Tuple3(date.date.toEpochDays()*24 + date.hour, it.totalValue, it.totalValue2)
                 }
             }
@@ -357,7 +359,7 @@ object HealthAPI {
             else -> {
                 val hourlySums = db.healthDao().getHourlySums(recordType, startTime.toEpochMilliseconds(), endTime.toEpochMilliseconds()).sortedBy { it.hourBlock }
                 return hourlySums.map {
-                    val date = LocalDateTime.parse(it.hourBlock)
+                    val date = hourlyFormat.parse(it.hourBlock)
                     Tuple3(date.date.toEpochDays()*24 + date.hour, it.totalValue, it.totalValue2)
                 }
             }
