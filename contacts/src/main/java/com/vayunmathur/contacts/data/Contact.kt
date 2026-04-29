@@ -483,7 +483,7 @@ fun getDetailsInternal(context: Context, id: Long? = null, isProfile: Boolean = 
         contentResolver.query(
             if (isProfile) Uri.withAppendedPath(Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY) else ContactsContract.Data.CONTENT_URI,
             projection,
-            if (id != null) "${ContactsContract.Data.CONTACT_ID} = ?" else null,
+            if (id != null) "${ContactsContract.Data.RAW_CONTACT_ID} = ?" else null,
             if (id != null) arrayOf(id.toString()) else null,
             null
         )?.use { cursor ->
