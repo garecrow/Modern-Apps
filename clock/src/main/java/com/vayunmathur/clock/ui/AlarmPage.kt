@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,19 +72,21 @@ fun AlarmPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel, newA
     }, bottomBar = {
         BottomNavBar(backStack, mainPages(), Route.Alarm)
     }, floatingActionButton = {
-        FloatingActionButton({
-            backStack.add(Route.NewAlarmDialog())
-        }) {
-            IconAdd()
+        if (alarms.isNotEmpty()) {
+            FloatingActionButton({
+                backStack.add(Route.NewAlarmDialog())
+            }) {
+                IconAdd()
+            }
         }
     }) { paddingValues ->
         if (alarms.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text(
-                    stringResource(R.string.no_alarms),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Button(onClick = { backStack.add(Route.NewAlarmDialog()) }) {
+                    IconAdd()
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.set_an_alarm))
+                }
             }
         } else {
             LazyColumn(

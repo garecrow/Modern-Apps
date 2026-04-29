@@ -27,6 +27,7 @@ import com.vayunmathur.clock.data.Timer
 import com.vayunmathur.clock.ui.sendTimerNotification
 import com.vayunmathur.library.util.DatabaseViewModel
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -38,8 +39,11 @@ fun NewTimerDialog(
     initialMessage: String? = null
 ) {
     var name by remember { mutableStateOf(initialMessage ?: "") }
+    var hoursStr by remember {
+        mutableStateOf(initialLengthSeconds?.let { (it / 3600).toString() } ?: "")
+    }
     var minutesStr by remember { 
-        mutableStateOf(initialLengthSeconds?.let { (it / 60).toString() } ?: "") 
+        mutableStateOf(initialLengthSeconds?.let { ((it % 3600) / 60).toString() } ?: "") 
     }
     var secondsStr by remember { 
         mutableStateOf(initialLengthSeconds?.let { (it % 60).toString() } ?: "") 
@@ -61,9 +65,19 @@ fun NewTimerDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
+                        value = hoursStr,
+                        onValueChange = { if (it.length <= 2) hoursStr = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.field_hours)) },
+                        placeholder = { Text("0") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
                         value = minutesStr,
                         onValueChange = { if (it.length <= 2) minutesStr = it.filter { c -> c.isDigit() } },
                         label = { Text(stringResource(R.string.field_minutes)) },
+                        placeholder = { Text("0") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
@@ -72,6 +86,7 @@ fun NewTimerDialog(
                         value = secondsStr,
                         onValueChange = { if (it.length <= 2) secondsStr = it.filter { c -> c.isDigit() } },
                         label = { Text(stringResource(R.string.field_seconds)) },
+                        placeholder = { Text("0") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
@@ -82,10 +97,11 @@ fun NewTimerDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    val h = hoursStr.toIntOrNull() ?: 0
                     val m = minutesStr.toIntOrNull() ?: 0
                     val s = secondsStr.toIntOrNull() ?: 0
-                    if (m > 0 || s > 0) {
-                        val duration = m.minutes + s.seconds
+                    if (h > 0 || m > 0 || s > 0) {
+                        val duration = h.hours + m.minutes + s.seconds
                         val timer = Timer(true, name, Clock.System.now(), duration, duration)
                         viewModel.upsertAsync(timer) {
                             sendTimerNotification(context, timer.copy(id = it), true)
@@ -93,7 +109,7 @@ fun NewTimerDialog(
                         backStack.pop()
                     }
                 },
-                enabled = (minutesStr.toIntOrNull() ?: 0) > 0 || (secondsStr.toIntOrNull() ?: 0) > 0
+                enabled = (hoursStr.toIntOrNull() ?: 0) > 0 || (minutesStr.toIntOrNull() ?: 0) > 0 || (secondsStr.toIntOrNull() ?: 0) > 0
             ) {
                 Text(stringResource(R.string.button_save))
             }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -77,19 +78,31 @@ fun TimerPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
     }, bottomBar = {
         BottomNavBar(backStack, mainPages(), Route.Timer)
     }, floatingActionButton = {
-        FloatingActionButton({
-            backStack.add(Route.NewTimerDialog())
-        }) {
-            IconAdd()
+        if (timers.isNotEmpty()) {
+            FloatingActionButton({
+                backStack.add(Route.NewTimerDialog())
+            }) {
+                IconAdd()
+            }
         }
     }) { paddingValues ->
-        LazyColumn(
-            contentPadding = paddingValues + PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(timers, key = { it.id }) { timer ->
-                TimerCard(timer, now, viewModel)
+        if (timers.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Button(onClick = { backStack.add(Route.NewTimerDialog()) }) {
+                    IconAdd()
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.set_a_timer))
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = paddingValues + PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(timers, key = { it.id }) { timer ->
+                    TimerCard(timer, now, viewModel)
+                }
             }
         }
     }
