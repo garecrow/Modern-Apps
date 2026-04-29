@@ -212,10 +212,15 @@ data class Contact(
     fun save(context: Context, newDetails: ContactDetails, oldDetails: ContactDetails) {
         val ops = ArrayList<ContentProviderOperation>()
         if (id == 0L) {
-            ops += ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, accountType)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, accountName)
-                .build()
+            val builder = ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+            if (accountType != null && accountName != null) {
+                builder.withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, accountType)
+                builder.withValue(ContactsContract.RawContacts.ACCOUNT_NAME, accountName)
+            } else {
+                builder.withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, null)
+                builder.withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
+            }
+            ops += builder.build()
 
             ops += details.all().map { createInsertOperation(it) }
         } else {

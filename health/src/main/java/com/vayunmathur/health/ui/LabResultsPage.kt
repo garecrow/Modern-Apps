@@ -131,7 +131,7 @@ fun LabResultsPage(backStack: NavBackStack<Route>) {
             "effectiveDateTime": { 
               "type": "string", 
               "pattern": "^([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1])(T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?(Z|(\\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)))?)?)?$",
-              "description": "ISO 8601 date-time string. Use ONLY if found." 
+              "description": "ISO 8601 date-time string (e.g., 2023-07-13). MUST be in this format. Use ONLY if found."
             },
             "valueQuantity": { 
               "type": "object", 

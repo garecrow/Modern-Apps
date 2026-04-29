@@ -109,7 +109,7 @@ fun EditContactPage(backStack: NavBackStack<Route>, viewModel: ContactViewModel,
     var birthday by remember { mutableStateOf(contact?.birthday?.startDate) }
     
     var accountName by remember { mutableStateOf(contact?.accountName ?: "") }
-    var accountType by remember { mutableStateOf(contact?.accountType ?: "com.vayunmathur.contacts.local") }
+    var accountType by remember { mutableStateOf(contact?.accountType ?: "") }
 
     val accounts by viewModel.accounts.collectAsState()
 
