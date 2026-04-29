@@ -51,4 +51,15 @@
     <string name="action_call">Zadzwoń</string>
     <string name="action_message">Wiadomość</string>
     <string name="action_video">Wideo</string>
+    <string name="add_date">Dodaj datę</string>
+    <string name="remove_email">Usuń email</string>
+    <string name="remove_address">Usuń adres</string>
+    <string name="remove_phone">Usuń telefon</string>
+    <string name="account_display_format">%1$s (%2$s)</string>
+    <string name="add_address">Dodaj adres</string>
+    <string name="add_phone">Dodaj telefon</string>
+    <string name="remove_date">Usuń datę</string>
+    <string name="delete_contact_name_confirm">Czy na pewno chcesz usunąć „%1$s”? Tej czynności nie można cofnąć.</string>
+    <string name="add_email">Dodaj email</string>
+    <string name="full_name_format">%1$s %2$s</string>
 </resources>
