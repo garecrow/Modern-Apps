@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.sp
  * Converts a Markdown string into an AnnotatedString for Jetpack Compose.
  * @param mdtext The raw markdown text.
  * @param showMarkers If false, the formatting symbols (#, *, etc.) are hidden and occupy no space.
- * @param process If true, the text is preprocessed for newline rules and list normalization.
- * @param softWrap If true, single newlines in regular text blocks are merged into a single line.
+ * @param process If true, the text is preprocessed for list and header normalization.
+ * @param softWrap If true, the text is preprocessed for newline rules (single newlines merged, redundant blank lines removed).
  */
 fun parseMarkdown(
     mdtext: String,
@@ -29,25 +29,21 @@ fun parseMarkdown(
     softWrap: Boolean = true
 ): AnnotatedString {
     // 1. Preprocess text for newline rules and list normalization
-    val processedText = if (process) {
+    val processedText = if (process || softWrap) {
         val lines = mdtext.lines()
         buildString {
             var i = 0
             while (i < lines.size) {
                 val line = lines[i]
 
-                // Rule: 2+ newlines always becomes 1 newline for anything.
-                // Since we append \n after every processed block, skipping blank lines
-                // effectively reduces 2+ newlines to the 1 newline from the previous block.
-                if (line.isBlank()) {
+                if (softWrap && line.isBlank()) {
                     while (i + 1 < lines.size && lines[i + 1].isBlank()) i++
                     i++; continue
                 }
 
                 val trimmed = line.trimStart()
-                val listMatch = Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(line)
-                val isCurrentSpecial =
-                    trimmed.startsWith("#") || trimmed.startsWith(">") || listMatch != null
+                val listMatch = if (process) Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(line) else null
+                val isCurrentSpecial = process && (trimmed.startsWith("#") || trimmed.startsWith(">") || listMatch != null)
 
                 if (isCurrentSpecial) {
                     if (listMatch != null) {
@@ -56,35 +52,34 @@ fun parseMarkdown(
                         val normalizedIndent = "  ".repeat(level)
                         val marker = listMatch.groups[2]!!.value
                         val rest = listMatch.groups[3]!!.value
-                        val newMarker =
-                            if (marker.length == 1 && "*+-".contains(marker)) "•" else marker
+                        val newMarker = if (marker.length == 1 && "*+-".contains(marker)) "•" else marker
                         append("$normalizedIndent$newMarker ${rest.trimStart()}\n")
                     } else {
                         append(line.trimEnd() + "\n")
                     }
                 } else {
-                    // Regular text: Rule: 1 newline becomes 0 newlines only when both lines are not headers or bullets
-                    var merged = line.trim()
+                    var merged = if (softWrap) line.trim() else line
                     if (softWrap) {
                         while (i + 1 < lines.size && lines[i + 1].isNotBlank()) {
                             val nextLine = lines[i + 1]
                             val nextTrimmed = nextLine.trimStart()
-                            val nextListMatch =
-                                Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine)
-                            val isNextSpecial =
-                                nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null
+                            val nextListMatch = if (process) Regex("^(\\s*)([•*+-]|\\d+[.)])(\\s+.*)").matchEntire(nextLine) else null
+                            val isNextSpecial = process && (nextTrimmed.startsWith("#") || nextTrimmed.startsWith(">") || nextListMatch != null)
 
-                            if (isNextSpecial) break // Newline preserved if next line is special
+                            if (isNextSpecial) break
 
                             merged += " " + nextLine.trim()
                             i++
                         }
                     }
-                    append(merged + "\n")
+                    append(merged)
+                    if (!softWrap || i < lines.size - 1) {
+                        append("\n")
+                    }
                 }
                 i++
             }
-        }.trim()
+        }.let { if (softWrap) it.trim() else it }
     } else {
         mdtext
     }
