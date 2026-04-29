@@ -37,4 +37,7 @@
     <string name="time_am">el (AM)</string>
     <string name="time_pm">pl (PM)</string>
     <string name="grant_notifications_permission">Anna õigused teavituste saatmiseks</string>
+    <string name="set_an_alarm">Seadista äratus</string>
+    <string name="set_a_timer">Seadista taimer</string>
+    <string name="field_hours">Tunnid</string>
 </resources>
