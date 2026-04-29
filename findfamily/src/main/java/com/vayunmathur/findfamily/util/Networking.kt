@@ -28,9 +28,13 @@ import kotlin.random.Random
 object Networking {
     private const val URL = "https://findfamily.cc"
 
+    private val json = Json {
+        ignoreUnknownKeys = true
+    }
+
     private val client = HttpClient {
         install(ContentNegotiation) {
-            json()
+            json(json)
         }
     }
     private val crypto = CryptographyProvider.Default.get(RSA.OAEP)
@@ -154,7 +158,7 @@ object Networking {
 
     private suspend fun encryptLocation(location: LocationValue, recipientUserID: Long, key: RSA.OAEP.PublicKey): LocationSharingData {
         val cipher = key.encryptor()
-        val str = Json.encodeToString(location.toCompatible())
+        val str = json.encodeToString(location.toCompatible())
         val encryptedData = Base64.encode(cipher.encrypt(str.encodeToByteArray()))
         return LocationSharingData(recipientUserID.toULong(), encryptedData)
     }
@@ -162,7 +166,7 @@ object Networking {
     private suspend fun decryptLocation(encryptedLocation: String): LocationValue {
         val cipher = privatekey!!.decryptor()
         val decryptedData = cipher.decrypt(Base64.decode(encryptedLocation)).decodeToString()
-        return Json.decodeFromString<LocationValueCompatible>(decryptedData).toLocationValue()
+        return json.decodeFromString<LocationValueCompatible>(decryptedData).toLocationValue()
     }
 
     suspend fun generateKeyPair(): RSA.OAEP.KeyPair {
