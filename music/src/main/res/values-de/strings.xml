@@ -32,4 +32,9 @@
     <string name="num_songs_format"></string>
     <string name="page_title_music"></string>
     <string name="unknown_artist"></string>
+    <string name="nav_playlists">Playlisten</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_albums">Albums</string>
+    <string name="nav_artists">Künstler*innen</string>
+    <string name="app_name">Musik</string>
 </resources>
