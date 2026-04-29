@@ -7,4 +7,5 @@
     <string name="mic_error_format">Mikrofoni viga: %1$s</string>
     <string name="new_conversation">Uus vestlus</string>
     <string name="perm_desc_inference">Võimaldab teistel rakendustel kasutada seadmes asuvat tehisintellekti järeldusteenust struktureeritud andmete väljastamiseks.</string>
+    <string name="error_prefix">Viga: %1$s</string>
 </resources>
