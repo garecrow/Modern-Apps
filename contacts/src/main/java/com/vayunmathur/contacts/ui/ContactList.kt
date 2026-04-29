@@ -63,6 +63,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.io.encoding.Base64
 
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
+import com.vayunmathur.contacts.util.VcfUtils
+import com.vayunmathur.library.ui.IconDelete
+import com.vayunmathur.library.ui.IconShare
+import com.vayunmathur.library.ui.IconClose
+import kotlinx.coroutines.launch
+import okio.FileSystem
+import okio.Path.Companion.toOkioPath
+import okio.buffer
+import android.content.Intent
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactList(
@@ -71,18 +85,48 @@ fun ContactList(
     onContactClick: (Contact) -> Unit,
     onAddContactClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
     LaunchedEffect(Unit) {
         viewModel.loadContacts()
         viewModel.loadAccounts()
     }
 
     val contacts by viewModel.contacts.collectAsState()
+    val selectedIds = remember { mutableStateListOf<Long>() }
+    val isSelectionMode = selectedIds.isNotEmpty()
 
     val (favorites, otherContacts) = remember(contacts) { contacts.partition { it.isFavorite } }
     val groupedContacts = remember(otherContacts) {
         otherContacts.groupBy { it.name.value.firstOrNull()?.uppercaseChar() ?: '#' }
             .mapValues { (_, c) -> c.sortedBy { it.name.value } }
             .toSortedMap()
+    }
+
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text(stringResource(R.string.delete_selected_contacts_title)) },
+            text = { Text(stringResource(R.string.delete_selected_contacts_confirm, selectedIds.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val toDelete = contacts.filter { it.id in selectedIds }
+                    toDelete.forEach { viewModel.deleteContact(it) }
+                    selectedIds.clear()
+                    showDeleteConfirmation = false
+                }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 
     val selectedID = when(backStack.last()) {
@@ -93,14 +137,68 @@ fun ContactList(
 
     Scaffold(
         topBar = {
-            TopAppBar({Text(stringResource(R.string.app_name))}, actions = {
-                IconButton(onClick = { backStack.add(Route.Settings) }) {
-                    IconSettings()
-                }
-            })
+            if (isSelectionMode) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.selected_count, selectedIds.size)) },
+                    navigationIcon = {
+                        IconButton(onClick = { selectedIds.clear() }) {
+                            IconClose()
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            val toExport = contacts.filter { it.id in selectedIds }
+                            scope.launch(Dispatchers.IO) {
+                                val vcfFile = context.cacheDir.toOkioPath().resolve("selected_contacts.vcf")
+                                FileSystem.SYSTEM.sink(vcfFile).buffer().use { outputStream ->
+                                    VcfUtils.exportContacts(toExport, outputStream)
+                                }
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", vcfFile.toFile())
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/x-vcard"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_contact)))
+                            }
+                        }) {
+                            IconShare()
+                        }
+                        IconButton(onClick = { showDeleteConfirmation = true }) {
+                            IconDelete()
+                        }
+                    }
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.app_name)) },
+                    actions = {
+                        IconButton(onClick = {
+                            scope.launch(Dispatchers.IO) {
+                                val vcfFile = context.cacheDir.toOkioPath().resolve("all_contacts.vcf")
+                                FileSystem.SYSTEM.sink(vcfFile).buffer().use { outputStream ->
+                                    VcfUtils.exportContacts(contacts, outputStream)
+                                }
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", vcfFile.toFile())
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/x-vcard"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_contact)))
+                            }
+                        }) {
+                            IconShare()
+                        }
+                        IconButton(onClick = { backStack.add(Route.Settings) }) {
+                            IconSettings()
+                        }
+                    }
+                )
+            }
         },
         floatingActionButton = {
-            if(backStack.last() !is Route.EditContact) {
+            if(backStack.last() !is Route.EditContact && !isSelectionMode) {
                 FloatingActionButton(onClick = { onAddContactClick() }) {
                     IconAdd()
                 }
@@ -117,8 +215,23 @@ fun ContactList(
                 items(favorites, key = { it.id }) { contact ->
                     ContactItem(
                         contact = contact,
-                        isSelected = selectedID == contact.id,
-                        onClick = { onContactClick(contact) },
+                        isSelected = if (isSelectionMode) contact.id in selectedIds else selectedID == contact.id,
+                        onClick = {
+                            if (isSelectionMode) {
+                                if (contact.id in selectedIds) {
+                                    selectedIds.remove(contact.id)
+                                } else {
+                                    selectedIds.add(contact.id)
+                                }
+                            } else {
+                                onContactClick(contact)
+                            }
+                        },
+                        onLongClick = {
+                            if (!isSelectionMode) {
+                                selectedIds.add(contact.id)
+                            }
+                        }
                     )
                 }
             }
@@ -128,14 +241,30 @@ fun ContactList(
                 items(contactsInGroup, key = { it.id }) { contact ->
                     ContactItem(
                         contact = contact,
-                        isSelected = selectedID == contact.id,
-                        onClick = { onContactClick(contact) },
+                        isSelected = if (isSelectionMode) contact.id in selectedIds else selectedID == contact.id,
+                        onClick = {
+                            if (isSelectionMode) {
+                                if (contact.id in selectedIds) {
+                                    selectedIds.remove(contact.id)
+                                } else {
+                                    selectedIds.add(contact.id)
+                                }
+                            } else {
+                                onContactClick(contact)
+                            }
+                        },
+                        onLongClick = {
+                            if (!isSelectionMode) {
+                                selectedIds.add(contact.id)
+                            }
+                        }
                     )
                 }
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,12 +399,14 @@ fun ContactItem(
     contact: Contact,
     isSelected: Boolean,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     dropdownList: List<String>? = null,
     dropdownListClick: (Int) -> Unit = {}
 ) {
     val modifier = if (dropdownList == null) {
         Modifier.combinedClickable(
             onClick = onClick,
+            onLongClick = onLongClick
         )
     } else {
         Modifier
