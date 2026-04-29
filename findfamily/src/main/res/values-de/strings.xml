@@ -82,4 +82,8 @@
     <string name="today"></string>
     <string name="last_updated_never"></string>
     <string name="permission_background_explanation"></string>
+    <string name="notification_channel_battery_name">Akku Alarm</string>
+    <string name="notification_channel_location_tracking_name">Orten</string>
+    <string name="app_name">Find Family</string>
+    <string name="notification_channel_location_tracking_desc">Wird genutzt um FindFamily Ortung auch im Hintergrund durchzuführen</string>
 </resources>
