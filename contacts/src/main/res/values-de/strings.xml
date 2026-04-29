@@ -57,4 +57,9 @@
     <string name="add">Hinzufügen</string>
     <string name="action_message">Nachricht</string>
     <string name="grant_contacts_permission">Bitte erlaube die Kontaktberechtigung</string>
+    <string name="name_nickname_format"></string>
+    <string name="account_display_format"></string>
+    <string name="action"></string>
+    <string name="note"></string>
+    <string name="full_name_format"></string>
 </resources>
