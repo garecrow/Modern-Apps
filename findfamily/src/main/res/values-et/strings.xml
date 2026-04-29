@@ -44,4 +44,5 @@
     <string name="missing_features_explanation">Pere asukoha rakendus eeldab, et võrgupõhine asukohatuvastus ja geokodeerimine toimib korralikult. Palun kontrolli, et Google Play Services või samaväärne teenus on paigaldatud ja võrgupõhine asukohatuvastus on lülitatud sisse.</string>
     <string name="today">täna</string>
     <string name="yesterday">eile</string>
+    <string name="settings">Seadistused</string>
 </resources>
