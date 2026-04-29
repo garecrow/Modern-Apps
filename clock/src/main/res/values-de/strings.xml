@@ -33,4 +33,8 @@
     <string name="header_laps"></string>
     <string name="channel_ongoing_timers_description"></string>
     <string name="no_alarms"></string>
+    <string name="label_timer">Timer</string>
+    <string name="label_clock">Uhr</string>
+    <string name="label_alarm">Wecker</string>
+    <string name="app_name">Uhr</string>
 </resources>
