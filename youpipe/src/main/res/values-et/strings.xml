@@ -1,3 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="title_history">Ajalugu</string>
+    <string name="label_search">Otsi</string>
+    <string name="subscribers_count">%1$s tellijat</string>
+    <string name="title_create_subscription_category">Loo tellimuste kategooria</string>
+    <string name="title_update_subscription_category">Uuenda tellimuste kategooriat</string>
+    <string name="app_name">YouPipe</string>
 </resources>
