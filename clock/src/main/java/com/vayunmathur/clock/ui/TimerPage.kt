@@ -6,25 +6,34 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,36 +42,38 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationCompat
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import com.vayunmathur.library.util.NavBackStack
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationCompat
 import com.vayunmathur.clock.R
 import com.vayunmathur.clock.Route
-import com.vayunmathur.clock.util.TimerReceiver
-import com.vayunmathur.clock.mainPages
 import com.vayunmathur.clock.data.Timer
+import com.vayunmathur.clock.mainPages
+import com.vayunmathur.clock.util.TimerReceiver
 import com.vayunmathur.library.ui.IconAdd
+import com.vayunmathur.library.ui.IconClose
 import com.vayunmathur.library.ui.IconDelete
 import com.vayunmathur.library.ui.IconPause
 import com.vayunmathur.library.ui.IconPlay
 import com.vayunmathur.library.util.BottomNavBar
 import com.vayunmathur.library.util.DatabaseViewModel
+import com.vayunmathur.library.util.NavBackStack
 import com.vayunmathur.library.util.nowState
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -72,28 +83,45 @@ import kotlin.time.Instant
 fun TimerPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
     val now by nowState()
     val timers by viewModel.data<Timer>().collectAsState(initial = emptyList())
+    var isAddingTimer by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    Scaffold(topBar = {
-        TopAppBar({ Text(stringResource(R.string.label_timer)) })
-    }, bottomBar = {
-        BottomNavBar(backStack, mainPages(), Route.Timer)
-    }, floatingActionButton = {
-        if (timers.isNotEmpty()) {
-            FloatingActionButton({
-                backStack.add(Route.NewTimerDialog())
-            }) {
-                IconAdd()
-            }
-        }
-    }) { paddingValues ->
-        if (timers.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Button(onClick = { backStack.add(Route.NewTimerDialog()) }) {
+    val showKeypad = timers.isEmpty() || isAddingTimer
+
+    Scaffold(
+        topBar = {
+            TopAppBar({ Text(stringResource(R.string.label_timer)) })
+        },
+        bottomBar = {
+            BottomNavBar(backStack, mainPages(), Route.Timer)
+        },
+        floatingActionButton = {
+            if (!showKeypad) {
+                FloatingActionButton({
+                    isAddingTimer = true
+                }) {
                     IconAdd()
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.set_a_timer))
                 }
             }
+        }
+    ) { paddingValues ->
+        if (showKeypad) {
+            TimerKeypadContent(
+                paddingValues = paddingValues,
+                onStart = { duration ->
+                    val timer = Timer(true, "", Clock.System.now(), duration, duration)
+                    viewModel.upsertAsync(timer) {
+                        sendTimerNotification(context, timer.copy(id = it), true)
+                    }
+                    isAddingTimer = false
+                },
+                onCancel = {
+                    if (timers.isNotEmpty()) {
+                        isAddingTimer = false
+                    }
+                },
+                showCancel = timers.isNotEmpty()
+            )
         } else {
             LazyColumn(
                 contentPadding = paddingValues + PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -105,6 +133,157 @@ fun TimerPage(backStack: NavBackStack<Route>, viewModel: DatabaseViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun TimerKeypadContent(
+    paddingValues: PaddingValues,
+    onStart: (Duration) -> Unit,
+    onCancel: () -> Unit,
+    showCancel: Boolean
+) {
+    var input by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceEvenly
+    ) {
+        // Time Display
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            val padded = input.padStart(6, '0')
+            val h = padded.substring(0, 2)
+            val m = padded.substring(2, 4)
+            val s = padded.substring(4, 6)
+
+            TimeUnitDisplay(h, "h", input.length >= 5)
+            Spacer(Modifier.width(8.dp))
+            TimeUnitDisplay(m, "m", input.length >= 3)
+            Spacer(Modifier.width(8.dp))
+            TimeUnitDisplay(s, "s", input.length >= 1)
+        }
+
+        // Keypad
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            KeypadRow("1", "2", "3") { input = (input + it).takeLast(6).trimStart('0') }
+            KeypadRow("4", "5", "6") { input = (input + it).takeLast(6).trimStart('0') }
+            KeypadRow("7", "8", "9") { input = (input + it).takeLast(6).trimStart('0') }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                KeypadButton("00", Modifier.weight(1f)) { input = (input + "00").takeLast(6).trimStart('0') }
+                KeypadButton("0", Modifier.weight(1f)) { input = (input + "0").takeLast(6).trimStart('0') }
+                ActionKeypadButton(
+                    text = "⌫",
+                    modifier = Modifier.weight(1f),
+                    onClick = { input = input.dropLast(1) }
+                )
+            }
+        }
+
+        // Bottom Actions
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (showCancel) {
+                IconButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    IconClose()
+                }
+            }
+
+            val duration = remember(input) {
+                val padded = input.padStart(6, '0')
+                val h = padded.substring(0, 2).toIntOrNull() ?: 0
+                val m = padded.substring(2, 4).toIntOrNull() ?: 0
+                val s = padded.substring(4, 6).toIntOrNull() ?: 0
+                (h.hours + m.minutes + s.seconds)
+            }
+
+            IconButton(
+                onClick = { if (duration.inWholeSeconds > 0) onStart(duration) },
+                enabled = duration.inWholeSeconds > 0,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(if (duration.inWholeSeconds > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                IconPlay(tint = if (duration.inWholeSeconds > 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f))
+            }
+        }
+    }
+}
+
+@Composable
+fun TimeUnitDisplay(value: String, unit: String, active: Boolean) {
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp),
+            color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+            fontWeight = FontWeight.Light
+        )
+        Text(
+            text = unit,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+            modifier = Modifier.padding(bottom = 12.dp, start = 2.dp)
+        )
+    }
+}
+
+@Composable
+fun ColumnScope.KeypadRow(k1: String, k2: String, k3: String, onClick: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        KeypadButton(k1, Modifier.weight(1f), onClick)
+        KeypadButton(k2, Modifier.weight(1f), onClick)
+        KeypadButton(k3, Modifier.weight(1f), onClick)
+    }
+}
+
+@Composable
+fun KeypadButton(text: String, modifier: Modifier = Modifier, onClick: (String) -> Unit) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable { onClick(text) },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+fun ActionKeypadButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
