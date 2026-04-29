@@ -49,4 +49,10 @@
     <string name="change_color"></string>
     <string name="go_to_date"></string>
     <string name="no_title"></string>
+    <string name="close">Schließen</string>
+    <string name="delete">Löschen</string>
+    <string name="ok">Ok</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="settings">Einstellungen</string>
+    <string name="app_name">Kalender</string>
 </resources>
