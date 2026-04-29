@@ -13,7 +13,7 @@
     <string name="favorites">Lemmikud</string>
     <string name="user_profile">Kasutajaprofiil</string>
     <string name="profiles">Profiilid</string>
-    <string name="export_contacts">Ekspordi valitud kontaktid</string>
+    <string name="export_contacts">Ekspordi kõik kontaktid</string>
     <string name="on_device">Seadmes</string>
     <string name="add_contact">Lisa kontakt</string>
     <string name="edit_contact">Muuda kontakti</string>
@@ -62,4 +62,13 @@
     <string name="delete_contact_name_confirm">Kas sa oled kindel, et soovid „%1$s“ kontakti kustutada? Seda tegevust ei saa tagasi pöörata.</string>
     <string name="add_email">Lisa e-posti aadress</string>
     <string name="full_name_format">%1$s %2$s</string>
+    <string name="calendar_sync">Kalendri sünkroonimine</string>
+    <string name="sync_contacts_calendar">Näita kalendris sünnipäevi</string>
+    <string name="contacts_calendar_name">Kontaktid</string>
+    <string name="anniversary">Aastapäev</string>
+    <string name="backup_and_export">Varundus ja eksport</string>
+    <string name="grant_calendar_permissions">Anna õigused kalendri kasutamiseks</string>
+    <string name="delete_selected_contacts_title">Kustuta valitud kontaktid</string>
+    <string name="delete_selected_contacts_confirm">Kas oled kindel, et soovid kustutada %1$d valitud kontakti? Seda tegevust ei saa tagasi pöörata.</string>
+    <string name="selected_count">%1$d on valitud</string>
 </resources>
