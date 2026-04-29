@@ -46,12 +46,13 @@
     <string name="new_local_calendar">Uus kohalik kalender</string>
     <string name="calendar_name">Kalendri nimi</string>
     <string name="choose_color">Vali värv:</string>
-    <string name="change_color_for">Muuda „%1$s“ kalendri värvi</string>
+    <string name="change_color_for">Muuda selle kalendri värvi</string>
     <string name="change_color">Muuda värvi</string>
     <string name="delete_calendar">Kustuta kalender</string>
-    <string name="delete_calendar_confirm">Kas oled kindel, et soovid „%1$s“ kustutada? Sellega kaovad kõik selles kalendris leiduvad sündmused.</string>
+    <string name="delete_calendar_confirm">Kas oled kindel, et soovid selle kalendri kustutada? Järgnevaga kaovad kõik antud kalendris leiduvad sündmused.</string>
     <string name="rename_calendar">Muuda kalendri nime</string>
     <string name="new_name">Uus nimi</string>
     <string name="create_a_calendar">Loo kalender</string>
     <string name="choose_timezone">Vali ajavöönd</string>
+    <string name="delete_calendar_name_confirm">Kas oled kindel, et soovid „%1$s“ kalendri kustutada? Järgnevaga kaovad kõik antud kalendris leiduvad sündmused.</string>
 </resources>
