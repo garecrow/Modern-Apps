@@ -314,7 +314,7 @@ class InferenceService : Service() {
     private suspend fun ensureEngineInitialized() {
         if (engine != null) return
 
-        val modelFile = File(applicationContext.getExternalFilesDir(null)!!, "gemma4.litertlm")
+        val modelFile = File(applicationContext.getExternalFilesDir(null)!!, "gemma4-4b.litertlm")
         if (!modelFile.exists()) throw Exception("Model file missing at ${modelFile.absolutePath}")
 
         val config = EngineConfig(
