@@ -1,6 +1,6 @@
 A simple, open-source local AI app.
 
-Requires 6GB of spare RAM to run.
+Uses 3.5GB RAM when active.
 
 Features:
 - multiple chats
