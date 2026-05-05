@@ -86,4 +86,5 @@
     <string name="permission_background_granted">✅ Taustal töötamine on lubatud</string>
     <string name="permission_enable_all_the_time">2. Valikust „Luba alati“ anna nõusolek taustal töötamiseks</string>
     <string name="permission_background_explanation">Tagamaks, et asukoha tuvastamine toimib taustateenusena, vali järgmisest vaatest „Luba alati“.</string>
+    <string name="user_card_status">Uuendatud %1$s\n%2$s\n%3$s</string>
 </resources>
