@@ -15,6 +15,7 @@ class UnblockJamAchievementsManager(
         onProgressUpdated("level_50", stats.size)
         onProgressUpdated("moves_1000", repository.getTotalMoves())
         onProgressUpdated("undo_master", repository.getUndoCount())
+        onProgressUpdated("all_levels_pack_0", stats.size) // Starter pack is 250 levels, so we just check total stats size for now if they are only playing pack 0
         
         // Check for optimal wins
         // Optimal win is hard to check retroactively without pack data, 

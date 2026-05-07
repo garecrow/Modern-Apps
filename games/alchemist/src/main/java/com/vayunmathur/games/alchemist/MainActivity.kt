@@ -15,7 +15,11 @@ import com.vayunmathur.library.util.rememberNavBackStack
 import kotlinx.serialization.Serializable
 import com.vayunmathur.games.alchemist.data.Alchemist
 import com.vayunmathur.library.util.AchievementsManager
+import com.vayunmathur.library.util.Achievement
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier

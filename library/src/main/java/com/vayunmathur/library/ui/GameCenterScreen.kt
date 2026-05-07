@@ -115,8 +115,9 @@ fun AchievementItem(status: com.vayunmathur.library.util.AchievementStatus) {
                     style = MaterialTheme.typography.bodySmall
                 )
                 
-                if (achievement.targetProgress > 1 && !status.isUnlocked) {
-                    val progressRatio = status.progress.toFloat() / achievement.targetProgress.toFloat()
+                if (achievement.targetProgress > 1) {
+                    val displayProgress = if (status.isUnlocked) achievement.targetProgress else status.progress
+                    val progressRatio = (displayProgress.toFloat() / achievement.targetProgress.toFloat()).coerceIn(0f, 1f)
                     LinearProgressIndicator(
                         progress = { progressRatio },
                         modifier = Modifier
@@ -126,7 +127,7 @@ fun AchievementItem(status: com.vayunmathur.library.util.AchievementStatus) {
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                     Text(
-                        text = "${status.progress} / ${achievement.targetProgress}",
+                        text = if (status.isUnlocked) "Completed!" else "$displayProgress / ${achievement.targetProgress}",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.align(Alignment.End)
                     )

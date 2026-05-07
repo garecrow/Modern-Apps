@@ -13,5 +13,6 @@ class ChessAchievementsManager(
         val wins = ds.getLong("chess_wins_count") ?: 0L
         if (wins > 0) onAchievementUnlocked("first_mate")
         onProgressUpdated("win_10", wins.toInt())
+        onProgressUpdated("win_50", wins.toInt())
     }
 }

@@ -20,6 +20,7 @@ class AlchemistAchievementsManager(
             if (items.size > 4) onAchievementUnlocked("first_creation")
             onProgressUpdated("collector_50", items.size)
             onProgressUpdated("collector_100", items.size)
+            onProgressUpdated("all_discovered", items.size)
             
             val itemIds = items.map { it.toLong() }.toSet()
             if (Alchemist.items.isNotEmpty()) {

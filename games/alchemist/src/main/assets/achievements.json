@@ -24,6 +24,7 @@
   {
     "id": "all_discovered",
     "name": "Omniscient",
-    "description": "Discover every single item in the game!"
+    "description": "Discover every single item in the game!",
+    "targetProgress": 720
   }
 ]

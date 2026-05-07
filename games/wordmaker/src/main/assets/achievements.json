@@ -1,13 +1,14 @@
 [
   {
-    "id": "first_word",
-    "name": "Quick Learner",
-    "description": "Find your first word!"
+    "id": "level_1_done",
+    "name": "First Steps",
+    "description": "Solve your first level!"
   },
   {
     "id": "manual_levels_done",
     "name": "Completed",
-    "description": "Complete all 861 original curated levels."
+    "description": "Complete all 861 original curated levels.",
+    "targetProgress": 861
   },
   {
     "id": "bonus_hunter",
@@ -18,17 +19,20 @@
   {
     "id": "level_50",
     "name": "Half-Century",
-    "description": "Reach level 50."
+    "description": "Reach level 50.",
+    "targetProgress": 50
   },
   {
     "id": "level_100",
     "name": "Century",
-    "description": "Reach level 100."
+    "description": "Reach level 100.",
+    "targetProgress": 100
   },
   {
     "id": "level_500",
     "name": "Word Smith",
-    "description": "Reach level 500."
+    "description": "Reach level 500.",
+    "targetProgress": 500
   },
   {
     "id": "long_word",

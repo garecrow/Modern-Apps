@@ -281,6 +281,7 @@ fun ChessGame(
             val currentWins = (ds.getLong("chess_wins_count") ?: 0L) + 1
             ds.setLong("chess_wins_count", currentWins)
             achievementsManager.onProgressUpdated("win_10", currentWins.toInt())
+            achievementsManager.onProgressUpdated("win_50", currentWins.toInt())
 
             if (uiState.board.moves.size <= 40) { // 20 moves per side = 40 total moves in list
                 achievementsManager.onAchievementUnlocked("won_fast")

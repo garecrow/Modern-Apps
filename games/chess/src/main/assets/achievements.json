@@ -11,6 +11,12 @@
     "targetProgress": 10
   },
   {
+    "id": "win_50",
+    "name": "Grandmaster in Training",
+    "description": "Win 50 games.",
+    "targetProgress": 50
+  },
+  {
     "id": "win_vs_ai_hard",
     "name": "AI Slayer",
     "description": "Win against AI on Hard or Master difficulty."

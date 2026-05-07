@@ -276,7 +276,6 @@ fun WordGameScreen(
 
                 // After animation
                 levelDataStore.addFoundWord(word)
-                achievementsManager.onAchievementUnlocked("first_word")
                 wordToAnimate = null
                 animatedLetters = emptyList()
             }
@@ -286,8 +285,14 @@ fun WordGameScreen(
     val isWon = crosswordData.winsWith(foundWords)
     
     LaunchedEffect(isWon) {
-        if (isWon && currentLevel == 861) {
-            achievementsManager.onAchievementUnlocked("manual_levels_done")
+        if (isWon) {
+            if (currentLevel == 1) achievementsManager.onAchievementUnlocked("level_1_done")
+            if (currentLevel == 861) achievementsManager.onAchievementUnlocked("manual_levels_done")
+            
+            achievementsManager.onProgressUpdated("manual_levels_done", currentLevel)
+            achievementsManager.onProgressUpdated("level_50", currentLevel)
+            achievementsManager.onProgressUpdated("level_100", currentLevel)
+            achievementsManager.onProgressUpdated("level_500", currentLevel)
         }
     }
 
