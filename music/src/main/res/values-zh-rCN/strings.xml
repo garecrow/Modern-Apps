@@ -37,4 +37,5 @@
     <string name="various_artists">多名音乐人</string>
     <string name="notification_shuffle">随机播放</string>
     <string name="notification_repeat">循环播放</string>
+    <string name="go_to_source">转到 %1$s</string>
 </resources>
